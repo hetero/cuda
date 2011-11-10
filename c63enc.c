@@ -40,7 +40,7 @@ static yuv_t* read_yuv(FILE *file)
     printf("Reading...\n");
 
     /* Read Y' */
-    image->Y = malloc(width*height);
+    image->Y = malloc(width*(height+8));
     len += fread(image->Y, 1, width*height, file);
     if(ferror(file))
     {

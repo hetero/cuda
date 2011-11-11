@@ -1,11 +1,34 @@
-CC = gcc
-CFLAGS = -O3 -Wall -g -D_XOPEN_SOURCE=600
-LDFLAGS = -lm 
+CUDA_INSTALL_PATH = /usr/local/cuda
+
+CXX = g++
+CC = g++
+NVCC = nvcc
+LINK = g++
+
+#CFLAGS = -O3 -Wall -g -D_XOPEN_SOURCE=600
+#LDFLAGS = -lm 
+
+LIB_CUDA := -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
+INCLUDES = -I$(CUDA_INSTALL_PATH)/include
+
+COMMONFLAGS += $(INCLUDES)
+NVCCFLAGS += $(COMMONFLAGS) -g
+CXXFLAGS += $(COMMONFLAGS)
+CFLAGS += $(COMMONFLAGS) -O3 -Wall -g
+
+OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o
+OBJS_DEC = c63dec.o tables.o io.o common.o me.o dsp.o
 
 all: c63enc c63dec
 
-c63enc: c63enc.o dsp.o tables.o io.o c63_write.o c63.h common.o me.o
-c63dec: c63dec.o dsp.o tables.o io.o c63.h common.o me.o
+cuda.o: cuda.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+c63enc: $(OBJS_ENC)
+	$(LINK) -o c63enc $(OBJS_ENC) $(LIB_CUDA)
+
+c63dec: $(OBJS_DEC)
+	$(LINK) -o c63dec $(OBJS_DEC) $(LIB_CUDA)
 
 clean:
 	rm -f *.o c63enc c63dec

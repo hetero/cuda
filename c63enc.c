@@ -35,12 +35,12 @@ extern char *optarg;
 static yuv_t* read_yuv(FILE *file)
 {
     size_t len = 0;
-    yuv_t *image = malloc(sizeof(yuv_t));
+    yuv_t *image = (yuv_t*)malloc(sizeof(yuv_t));
 
     printf("Reading...\n");
 
     /* Read Y' */
-    image->Y = malloc(width*(height+8));
+    image->Y = (uint8_t*)malloc(width*(height+8));
     len += fread(image->Y, 1, width*height, file);
     if(ferror(file))
     {
@@ -49,7 +49,7 @@ static yuv_t* read_yuv(FILE *file)
     }
 
     /* Read U */
-    image->U = malloc(width*height);
+    image->U = (uint8_t*)malloc(width*height);
     len += fread(image->U, 1, (width*height)/4, file);
     if(ferror(file))
     {
@@ -58,7 +58,7 @@ static yuv_t* read_yuv(FILE *file)
     }
 
     /* Read V */
-    image->V = malloc(width*height);
+    image->V = (uint8_t*)malloc(width*height);
     len += fread(image->V, 1, (width*height)/4, file);
     if(ferror(file))
     {
@@ -127,7 +127,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
 struct c63_common* init_c63_enc(int width, int height)
 {
     int i;
-    struct c63_common *cm = calloc(1, sizeof(struct c63_common));
+    struct c63_common *cm = (struct c63_common*)calloc(1, sizeof(struct c63_common));
 
     cm->width = width;
     cm->height = height;

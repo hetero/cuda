@@ -42,7 +42,7 @@ void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, int h, in
 void dequantize_idct(int16_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height,
 			 uint8_t *out_data, uint8_t *quantization)
 {
-    int y;
+    uint32_t y;
     for (y=0; y<height; y+=8)
     {
         dequantize_idct_row(in_data+y*width, prediction+y*width, width, height, y, out_data+y*width, quantization);
@@ -74,7 +74,7 @@ void dct_quantize(uint8_t *in_data, uint8_t *prediction,
         uint32_t width, uint32_t height,
         int16_t *out_data, uint8_t *quantization)
 {
-    int y;
+    uint32_t y;
     for (y=0; y<height; y+=8)
     {
         dct_quantize_row(in_data+y*width, prediction+y*width, width, height, out_data+y*width, quantization);
@@ -89,7 +89,6 @@ void destroy_frame(struct frame *f)
     free(f->recons->Y);
     free(f->recons->U);
     free(f->recons->V);
-    free(f->recons);
 
     free(f->residuals->Ydct);
     free(f->residuals->Udct);
@@ -110,36 +109,36 @@ void destroy_frame(struct frame *f)
 
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
-    struct frame *f = malloc(sizeof(struct frame));
+    struct frame *f = (struct frame*)malloc(sizeof(struct frame));
 
     f->orig = image;
 
-    f->recons = malloc(sizeof(yuv_t));
-    f->recons->Y = malloc(cm->ypw * cm->yph);
-    f->recons->U = malloc(cm->upw * cm->uph);
-    f->recons->V = malloc(cm->vpw * cm->vph);
+    f->recons = (yuv_t*)malloc(sizeof(yuv_t));
+    f->recons->Y = (uint8_t*)malloc(cm->ypw * cm->yph);
+    f->recons->U = (uint8_t*)malloc(cm->upw * cm->uph);
+    f->recons->V = (uint8_t*)malloc(cm->vpw * cm->vph);
 
-    f->predicted = malloc(sizeof(yuv_t));
-    f->predicted->Y = malloc(cm->ypw * cm->yph);
-    f->predicted->U = malloc(cm->upw * cm->uph);
-    f->predicted->V = malloc(cm->vpw * cm->vph);
+    f->predicted = (yuv_t*)malloc(sizeof(yuv_t));
+    f->predicted->Y = (uint8_t*)malloc(cm->ypw * cm->yph);
+    f->predicted->U = (uint8_t*)malloc(cm->upw * cm->uph);
+    f->predicted->V = (uint8_t*)malloc(cm->vpw * cm->vph);
 
     memset(f->predicted->Y, 0x80, cm->ypw * cm->yph);
     memset(f->predicted->U, 0x80, cm->upw * cm->uph);
     memset(f->predicted->V, 0x80, cm->vpw * cm->vph);
 
-    f->residuals = malloc(sizeof(dct_t));
-    f->residuals->Ydct = malloc(cm->ypw * cm->yph * sizeof(int16_t));
-    f->residuals->Udct = malloc(cm->upw * cm->uph * sizeof(int16_t));
-    f->residuals->Vdct = malloc(cm->vpw * cm->vph * sizeof(int16_t));
+    f->residuals = (dct_t*)malloc(sizeof(dct_t));
+    f->residuals->Ydct = (int16_t*)malloc(cm->ypw * cm->yph * sizeof(int16_t));
+    f->residuals->Udct = (int16_t*)malloc(cm->upw * cm->uph * sizeof(int16_t));
+    f->residuals->Vdct = (int16_t*)malloc(cm->vpw * cm->vph * sizeof(int16_t));
 
     memset(f->residuals->Ydct, 0x80, cm->ypw * cm->yph * sizeof(int16_t));
     memset(f->residuals->Udct, 0x80, cm->upw * cm->uph * sizeof(int16_t));
     memset(f->residuals->Vdct, 0x80, cm->vpw * cm->vph * sizeof(int16_t));
 
-    f->mbs[0] = calloc(cm->ypw * cm->yph, sizeof(struct macroblock));
-    f->mbs[1] = calloc(cm->upw * cm->uph, sizeof(struct macroblock));
-    f->mbs[2] = calloc(cm->vpw * cm->vph, sizeof(struct macroblock));
+    f->mbs[0] = (struct macroblock*)calloc(cm->ypw * cm->yph, sizeof(struct macroblock));
+    f->mbs[1] = (struct macroblock*)calloc(cm->upw * cm->uph, sizeof(struct macroblock));
+    f->mbs[2] = (struct macroblock*)calloc(cm->vpw * cm->vph, sizeof(struct macroblock));
 
     return f;
 }

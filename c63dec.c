@@ -235,7 +235,7 @@ static void read_interleaved_data_MCU(struct c63_common *cm, int16_t *dct, uint3
 void read_interleaved_data(struct c63_common *cm)
 {
     int16_t prev_DC[3] = {0, 0, 0};
-    int u,v;
+    uint32_t u,v;
 
     uint32_t ublocks = (uint32_t) (ceil(cm->ypw/(float)(8.0f*2)));
     uint32_t vblocks = (uint32_t) (ceil(cm->yph/(float)(8.0f*2)));
@@ -446,7 +446,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    struct c63_common *cm = calloc(1, sizeof(struct c63_common));
+    struct c63_common *cm = (struct c63_common*)calloc(1, sizeof(struct c63_common));
     cm->e_ctx.fp = fin;
 
     int framenum = 0;

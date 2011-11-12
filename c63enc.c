@@ -10,7 +10,7 @@
 
 #include "c63.h"
 #include "tables.h"
-
+#include "cuda_me.h"
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -211,6 +211,16 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+
+    ///
+
+    //height = 288;
+    //width = 352;
+    //limit_numframes = 2;
+    //output_file = "~/foreman.c63";
+
+    ///
+    
     outfile = fopen(output_file, "wb");
     if(outfile == NULL)
     {
@@ -234,6 +244,10 @@ int main(int argc, char **argv)
     vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
 
     input_file = argv[optind];
+
+    ///
+    //input_file = "~/foreman.yuv";
+    ///
 
     if (limit_numframes)
         fprintf(stderr, "Limited to %d frames.\n", limit_numframes);

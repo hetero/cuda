@@ -1,4 +1,5 @@
-CUDA_INSTALL_PATH = /usr/local/cuda
+CUDA_INSTALL_PATH ?= /usr/local/cuda
+CUDA_SDK_PATH ?= $(HOME)/NVIDIA_GPU_Computing_SDK
 
 CXX = g++
 CC = g++
@@ -9,19 +10,19 @@ LINK = g++
 #LDFLAGS = -lm 
 
 LIB_CUDA := -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
-INCLUDES = -I$(CUDA_INSTALL_PATH)/include
+INCLUDES = -I$(CUDA_INSTALL_PATH)/include -I$(CUDA_SDK_PATH)/C/common/inc
 
 COMMONFLAGS += $(INCLUDES)
 NVCCFLAGS += $(COMMONFLAGS) -g
 CXXFLAGS += $(COMMONFLAGS)
 CFLAGS += $(COMMONFLAGS) -O3 -Wall -g
 
-OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o
+OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o cuda_dct.o
 OBJS_DEC = c63dec.o tables.o io.o common.o me.o dsp.o
 
 all: c63enc c63dec
 
-cuda.o: cuda.cu
+cuda_dct.o: cuda_dct.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 c63enc: $(OBJS_ENC)

@@ -11,6 +11,7 @@
 #include "c63.h"
 #include "tables.h"
 #include "cuda_me.h"
+#include "cuda_dct.h"
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -99,17 +100,20 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        c63_motion_estimate(cm);
+        //c63_motion_estimate(cm);
 
         /* Motion Compensation */
-        c63_motion_compensate(cm);
+        //c63_motion_compensate(cm);
     }
 
     /* DCT and Quantization */
-    dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
-    dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
-    dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
+    //dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
+    //dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
+    //dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
 
+    cuda_dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, 0);
+    cuda_dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, 1);
+    cuda_dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, 1);
     /* Reconstruct frame for inter-prediction */
     dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
     dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
@@ -143,7 +147,11 @@ struct c63_common* init_c63_enc(int width, int height)
 
 
     /* Quality parameters */
+    // ---------------------------------------------------------------
+    // if you want to change this you need to prepare new __constant__
+    // quant tables in cuda_dct.cu 
     cm->qp = 25;                 // Constant quantization factor. Range: [1..50]
+    // ---------------------------------------------------------------
     cm->me_search_range = 16;    // Pixels in every direction
     cm->keyframe_interval = 100;  // Distance between keyframes
 
@@ -174,6 +182,24 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
+    for (int i = 0; i < 8; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            printf("%d, ", (uint8_t)(yquanttbl_def[i * 8 + j] / 2.5));
+        }
+        printf("\n");
+    }
+    printf("second\n");
+    for (int i = 0; i < 8; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            printf("%d, ", (uint8_t)(uvquanttbl_def[i * 8 + j] / 2.5));
+        }
+        printf("\n");
+    }
+
     int c;
     yuv_t *image;
 

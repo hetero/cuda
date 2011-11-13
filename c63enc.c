@@ -123,7 +123,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        c63_motion_estimate(cm);
+        cuda_c63_motion_estimate(cm);
 
         /* Motion Compensation */
         c63_motion_compensate(cm);

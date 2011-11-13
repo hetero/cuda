@@ -17,12 +17,15 @@ NVCCFLAGS += $(COMMONFLAGS) -g
 CXXFLAGS += $(COMMONFLAGS)
 CFLAGS += $(COMMONFLAGS) -O3 -Wall -g
 
-OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o cuda_dct.o
+OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o cuda_dct.o cuda_idct.o
 OBJS_DEC = c63dec.o tables.o io.o common.o me.o dsp.o
 
 all: c63enc c63dec
 
 cuda_dct.o: cuda_dct.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+cuda_idct.o: cuda_idct.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 c63enc: $(OBJS_ENC)

@@ -2,7 +2,7 @@
 
 #define ISQRT2 0.70710678118654f
 
-__constant__ uint8_t quanttbl[2][64] =
+__constant__ static uint8_t quanttbl[2][64] =
 {
     {
         6, 4, 4, 5, 4, 4, 6, 5,
@@ -26,7 +26,7 @@ __constant__ uint8_t quanttbl[2][64] =
     }
 };
 
-__constant__ uint8_t zigzag_U[64] =
+__constant__ static uint8_t zigzag_U[64] =
 {
     0,
     1, 0,
@@ -45,7 +45,7 @@ __constant__ uint8_t zigzag_U[64] =
     7,
 };
 
-__constant__ uint8_t zigzag_V[64] =
+__constant__ static uint8_t zigzag_V[64] =
 {
     0,
     0, 1,
@@ -64,7 +64,7 @@ __constant__ uint8_t zigzag_V[64] =
     7,
 };
 
-__constant__ float dctlookup[8][8] = {
+__constant__ static float dctlookup[8][8] = {
     {1.000000f, 0.980785f, 0.923880f, 0.831470f, 0.707107f, 0.555570f, 0.382683f, 0.195090f, },
     {1.000000f, 0.831470f, 0.382683f, -0.195090f, -0.707107f, -0.980785f, -0.923880f, -0.555570f, },
     {1.000000f, 0.555570f, -0.382683f, -0.980785f, -0.707107f, 0.195090f, 0.923880f, 0.831470f, },
@@ -75,7 +75,7 @@ __constant__ float dctlookup[8][8] = {
     {1.000000f, -0.980785f, 0.923880f, -0.831470f, 0.707107f, -0.555570f, 0.382683f, -0.195090f, },
 };
 
-__device__ void cuda_transpose_block(float *in_data, float *out_data)
+__device__ static void cuda_transpose_block(float *in_data, float *out_data)
 {
     for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
@@ -84,7 +84,7 @@ __device__ void cuda_transpose_block(float *in_data, float *out_data)
         }
 }
 
-__device__ void cuda_dct_1d(float *in_data, float *out_data)
+__device__ static void cuda_dct_1d(float *in_data, float *out_data)
 {
     for (int j = 0; j < 8; ++j)
     {
@@ -99,7 +99,7 @@ __device__ void cuda_dct_1d(float *in_data, float *out_data)
     }
 }
 
-__device__ void cuda_scale_block(float *in_data, float *out_data)
+__device__ static void cuda_scale_block(float *in_data, float *out_data)
 {
     for (int v = 0; v < 8; ++v)
     {
@@ -114,7 +114,7 @@ __device__ void cuda_scale_block(float *in_data, float *out_data)
     }
 }
 
-__device__ void cuda_quantize_block(float *in_data, float *out_data, uint8_t id_quant)
+__device__ static void cuda_quantize_block(float *in_data, float *out_data, uint8_t id_quant)
 {
     for (int zigzag = 0; zigzag < 64; ++zigzag)
     {
@@ -128,7 +128,7 @@ __device__ void cuda_quantize_block(float *in_data, float *out_data, uint8_t id_
     }
 }
 
-__device__ void cuda_dct_quant_block_8x8(float *mb2, int16_t *out_data, uint8_t id_quant)
+__device__ static void cuda_dct_quant_block_8x8(float *mb2, int16_t *out_data, uint8_t id_quant)
 {
     float mb[8 * 8];
 
@@ -157,7 +157,7 @@ __device__ void cuda_dct_quant_block_8x8(float *mb2, int16_t *out_data, uint8_t 
         out_data[i] = mb2[i];
 }
 
-__global__ void k_dct_quant_block_8x8(uint8_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, int16_t *out_data, uint8_t id_quant)
+__global__ static void k_dct_quant_block_8x8(uint8_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, int16_t *out_data, uint8_t id_quant)
 {
     int row = blockIdx.x;
     int col = threadIdx.x;

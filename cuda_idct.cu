@@ -99,7 +99,7 @@ __device__ static void cuda_scale_block(float *in_data, float *out_data)
     }
 }
 
-__device__ void cuda_idct_1d(float *in_data, float *out_data)
+__device__ static void cuda_idct_1d(float *in_data, float *out_data)
 {
     for (int j = 0; j < 8; ++j)
     {
@@ -114,7 +114,7 @@ __device__ void cuda_idct_1d(float *in_data, float *out_data)
     }
 }
 
-__device__ void cuda_dequantize_block(float *in_data, float *out_data, uint8_t id_quant)
+__device__ static void cuda_dequantize_block(float *in_data, float *out_data, uint8_t id_quant)
 {
     for (int zigzag = 0; zigzag < 64; ++zigzag)
     {
@@ -128,7 +128,7 @@ __device__ void cuda_dequantize_block(float *in_data, float *out_data, uint8_t i
     }
 }
 
-__device__ void cuda_dequant_idct_block_8x8(int16_t *in_data, float *mb, uint8_t id_quant)
+__device__ static void cuda_dequant_idct_block_8x8(int16_t *in_data, float *mb, uint8_t id_quant)
 {
     float mb2[8 * 8];
 
@@ -154,7 +154,7 @@ __device__ void cuda_dequant_idct_block_8x8(int16_t *in_data, float *mb, uint8_t
     cuda_transpose_block(mb2, mb);
 }
 
-__global__ void k_dequant_idct_block_8x8(int16_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, uint8_t *out_data, uint8_t id_quant)
+__global__ static void k_dequant_idct_block_8x8(int16_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, uint8_t *out_data, uint8_t id_quant)
 {
     int row = blockIdx.x;
     int col = threadIdx.x;

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <limits.h>
+#include <time.h>
 
 #include "c63.h"
 #include "tables.h"
@@ -31,6 +32,26 @@ static uint32_t vpw;
 /* getopt */
 extern int optind;
 extern char *optarg;
+
+// time measuring stuff
+struct timespec start_time, stop_time;
+
+float total_time = 0;
+
+void start() {
+        clock_gettime(CLOCK_REALTIME, &start_time);
+}
+
+void stop() {
+        clock_gettime(CLOCK_REALTIME, &stop_time);
+            total_time += stop_time.tv_sec - start_time.tv_sec + 
+                        (stop_time.tv_nsec - start_time.tv_nsec) / 1e9;
+}
+
+void print_time() {
+        printf("Measured time: %f\n", total_time);
+}
+
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -81,6 +102,7 @@ static yuv_t* read_yuv(FILE *file)
 
 static void c63_encode_image(struct c63_common *cm, yuv_t *image)
 {
+    start();
     /* Advance to next frame */
     destroy_frame(cm->refframe);
     cm->refframe = cm->curframe;
@@ -100,10 +122,10 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        //c63_motion_estimate(cm);
+        c63_motion_estimate(cm);
 
         /* Motion Compensation */
-        //c63_motion_compensate(cm);
+        c63_motion_compensate(cm);
     }
 
     /* DCT and Quantization */
@@ -182,24 +204,6 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
-    for (int i = 0; i < 8; i++)
-    {
-        for (int j = 0; j < 8; j++)
-        {
-            printf("%d, ", (uint8_t)(yquanttbl_def[i * 8 + j] / 2.5));
-        }
-        printf("\n");
-    }
-    printf("second\n");
-    for (int i = 0; i < 8; i++)
-    {
-        for (int j = 0; j < 8; j++)
-        {
-            printf("%d, ", (uint8_t)(uvquanttbl_def[i * 8 + j] / 2.5));
-        }
-        printf("\n");
-    }
-
     int c;
     yuv_t *image;
 
@@ -316,5 +320,7 @@ int main(int argc, char **argv)
     fclose(infile);
 //    fclose(predfile);
 
+
+    print_time();
     return EXIT_SUCCESS;
 }

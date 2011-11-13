@@ -160,7 +160,7 @@ __global__ static void k_dequant_idct_block_8x8(int16_t *in_data, uint8_t *predi
     int col = threadIdx.x;
     float block[8 * 8];
 
-    int16_t *my_in_data = &in_data[8 * width * row + 8 * col];
+    int16_t *my_in_data = &in_data[8 * width * row + 64 * col];
     uint8_t *my_prediction = &prediction[8 * width * row + 8 * col];
     uint8_t *my_out_data = &out_data[8 * width * row + 8 * col];
     /* Perform the dequantization and iDCT */

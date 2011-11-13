@@ -124,7 +124,7 @@ __device__ static void cuda_dequantize_block(float *in_data, float *out_data, ui
         float dct = in_data[zigzag];
 
         /* Zig-zag and de-quantize */
-        out_data[v * 8 + u] = rintf((dct * quanttbl[id_quant][zigzag]) / 4.0);
+        out_data[v * 8 + u] = rintf((dct * quanttbl[id_quant][zigzag]) / 4.0f);
     }
 }
 

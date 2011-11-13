@@ -10,7 +10,6 @@
 
 #include "c63.h"
 #include "cuda_me.h"
-#include "cuPrintf.cu"
 
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int stride, int *result)

@@ -103,7 +103,6 @@ static yuv_t* read_yuv(FILE *file)
 
 static void c63_encode_image(struct c63_common *cm, yuv_t *image)
 {
-    start();
     /* Advance to next frame */
     destroy_frame(cm->refframe);
     cm->refframe = cm->curframe;
@@ -134,7 +133,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     //dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
     //dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
     //dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
-
+    start();
     cuda_dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, 0);
     cuda_dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, 1);
     cuda_dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, 1);
@@ -148,7 +147,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     cuda_dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, 1);
     /* dump_image can be used here to check if the prediction is correct. */
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
-
+    stop();
     write_frame(cm);
 
     ++cm->framenum;

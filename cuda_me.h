@@ -3,6 +3,7 @@
 
 typedef struct {
     int sad, mv_x, mv_y;
+    int sadxy;
 } mv_out_t;
 
 void cuda_c63_motion_estimate(struct c63_common *cm);

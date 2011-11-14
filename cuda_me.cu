@@ -7,25 +7,31 @@
 #include <math.h>
 #include <assert.h>
 #include <limits.h>
+#include <sm_11_atomic_functions.h>
+#include <sm_12_atomic_functions.h>
+#include <sm_13_double_functions.h>
 
 #include "c63.h"
 #include "cuda_me.h"
 
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
-        int stride, int *result)
+        int stride, int mv_x, int mv_y, int *result)
 {
-    *result = 0;
+    int res = 0;
  
     int u,v;
     for (v=0; v<8; ++v)
         for (u=0; u<8; ++u)
-            *result += abs(block2[v*stride+u] - block1[v*stride+u]);
+            res += abs(block2[v*stride+u] - block1[v*stride+u]);
+    
+    // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
+    *result = (res << 10) + ((mv_x + 16) << 5) + (mv_y + 16);
 }
 
 __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, int w, int h)
 {
-    #define SAD_SIZE 32
-    __shared__ int sad[SAD_SIZE * SAD_SIZE];
+    __shared__ int best_sadxy;
+    best_sadxy = INT_MAX;
 
     int mb_x = blockIdx.x;
     int mb_y = blockIdx.y;
@@ -53,40 +59,25 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     int x = left + 2 * threadIdx.x;
     int y = top + threadIdx.y;
 
-    //cuPrintf("(x,y) = (%d, %d)\n", x, y);
     int mx = mb_x * 8;
     int my = mb_y * 8;
 
     if (y<bottom && x<right)
     {
-        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, 
-                &sad[(y-top) * SAD_SIZE + (x-left)]);
+        int sad;
+        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx, 
+                y-my, &sad);
+        atomicMin(&best_sadxy, sad);
         x++;
-        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, 
-                &sad[(y-top) * SAD_SIZE + (x-left)]);
+        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx,
+                y-my, &sad);
+        atomicMin(&best_sadxy, sad);
     }
 
     __syncthreads();
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        int best_sad = INT_MAX;
-        int best_x, best_y;
-
-        for (x = left; x < right; ++x) {
-            for (y = top; y < bottom; ++y) {
-//            printf("(%4d,%4d) - %d\n", x, y, sad);
-                int sad_temp = sad[(y-top) * SAD_SIZE + (x-left)];
-                if (sad_temp < best_sad)
-                {
-                    best_x = x - mx;
-                    best_y = y - my;
-                    best_sad = sad_temp;
-                }
-            }
-        }
-        mv_out[block_nr].sad = best_sad;
-        mv_out[block_nr].mv_x = best_x;
-        mv_out[block_nr].mv_y = best_y;
+        mv_out[block_nr].sadxy = best_sadxy;
     }
 }
 
@@ -132,7 +123,7 @@ void cuda_me_cc(struct c63_common *cm, int cc)
 
     dim3 threadsPerBlock(16, 32);
     dim3 numBlocks(mb_cols, mb_rows);
-
+    
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
         (orig, ref, mv_out_dev, cm->padw[cc], cm->padh[cc]); 
     
@@ -148,9 +139,11 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     for (mb_y = 0; mb_y < mb_rows; ++mb_y) {
         for (mb_x = 0; mb_x < mb_cols; ++mb_x) {
             int block_nr = mb_y * mb_cols + mb_x;
-            int sad = mv_out_host[block_nr].sad;
-            int mv_x = mv_out_host[block_nr].mv_x;
-            int mv_y = mv_out_host[block_nr].mv_y;
+            // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
+            int sadxy = mv_out_host[block_nr].sadxy;
+            int sad = sadxy >> 10;
+            int mv_x = ((sadxy >> 5) & 31) - 16;
+            int mv_y = (sadxy & 31) - 16;
             struct macroblock *mb = &cm->curframe->mbs[cc][block_nr];
             if (sad < 512) {
                 mb->use_mv = 1;
@@ -160,7 +153,6 @@ void cuda_me_cc(struct c63_common *cm, int cc)
             else {
                 mb->use_mv = 0;
             }
-                //printf("(%d,%d): MV (%d, %d) with SAD %d\n", mb_x, mb_y, mb->mv_x, mb->mv_y, sad);
         }
     }
 }

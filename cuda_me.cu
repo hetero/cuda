@@ -14,6 +14,9 @@
 #include "c63.h"
 #include "cuda_me.h"
 
+#define REF_SIZE 39
+#define ORIG_SIZE 8
+
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int stride, int mv_x, int mv_y, int *result)
 {
@@ -31,12 +34,21 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
 __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, int w, int h)
 {
     __shared__ int best_sadxy;
+    //__shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
     best_sadxy = INT_MAX;
 
     int mb_x = blockIdx.x;
     int mb_y = blockIdx.y;
     int block_nr = mb_y * w / 8 + mb_x;
     
+    int mx = mb_x * 8;
+    int my = mb_y * 8;
+    /*
+    // copying ORIG global->shared
+    if (threadIdx.x < 8 && threadIdx.y < 8)
+        shared_orig[threadIdx.y * ORIG_SIZE + threadIdx.x]
+            = orig[(my+threadIdx.y) * w + (mx+threadIdx.x)];
+*/
     int range = 16; //TODO
 
     int left = mb_x*8 - range;
@@ -59,19 +71,15 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     int x = left + 2 * threadIdx.x;
     int y = top + threadIdx.y;
 
-    int mx = mb_x * 8;
-    int my = mb_y * 8;
-
     if (y<bottom && x<right)
     {
-        int sad;
+        int sad1, sad2;
         cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx, 
-                y-my, &sad);
-        atomicMin(&best_sadxy, sad);
+                y-my, &sad1);
         x++;
         cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx,
-                y-my, &sad);
-        atomicMin(&best_sadxy, sad);
+                y-my, &sad2);
+        atomicMin(&best_sadxy, min(sad1, sad2));
     }
 
     __syncthreads();

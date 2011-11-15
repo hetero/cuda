@@ -18,15 +18,90 @@
 #define ORIG_SIZE 8
 
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
-        int stride, int mv_x, int mv_y, int *result)
+        int stride1, int stride2, int mv_x, int mv_y, int *result)
 {
     int res = 0;
  
-    int u,v;
-    for (v=0; v<8; ++v)
-        for (u=0; u<8; ++u)
-            res += abs(block2[v*stride+u] - block1[v*stride+u]);
-    
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 31;
+
     // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
     *result = (res << 10) + ((mv_x + 16) << 5) + (mv_y + 16);
 }
@@ -34,7 +109,8 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
 __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, int w, int h)
 {
     __shared__ int best_sadxy;
-    //__shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
+    __shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
+    __shared__ uint8_t shared_ref[REF_SIZE * REF_SIZE];
     best_sadxy = INT_MAX;
 
     int mb_x = blockIdx.x;
@@ -43,12 +119,13 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     
     int mx = mb_x * 8;
     int my = mb_y * 8;
-    /*
+    
     // copying ORIG global->shared
-    if (threadIdx.x < 8 && threadIdx.y < 8)
+    if (threadIdx.x < ORIG_SIZE && threadIdx.y < ORIG_SIZE)
         shared_orig[threadIdx.y * ORIG_SIZE + threadIdx.x]
             = orig[(my+threadIdx.y) * w + (mx+threadIdx.x)];
-*/
+
+
     int range = 16; //TODO
 
     int left = mb_x*8 - range;
@@ -67,18 +144,66 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     if (bottom > (h - 8))
         bottom = h - 8;
 
+    int rightEnd = right+7;
+    int bottomEnd = bottom+7;
 
-    int x = left + 2 * threadIdx.x;
-    int y = top + threadIdx.y;
+    //copying REF
 
-    if (y<bottom && x<right)
+    //1st whole block
+    if (left + threadIdx.x < rightEnd && 
+            top + threadIdx.y < bottomEnd) {
+        shared_ref[threadIdx.y * REF_SIZE + threadIdx.x] =
+            ref[(top + threadIdx.y) * w + (left + threadIdx.x)];
+    }
+    //2nd whole block
+    if (left + 16 + threadIdx.x < rightEnd 
+            && top + threadIdx.y < bottomEnd) {
+        shared_ref[threadIdx.y * REF_SIZE + 16 + threadIdx.x] =
+            ref[(top + threadIdx.y) * w + (left + 16 + threadIdx.x)];
+    }
+
+    //right border
+    if (threadIdx.x < 7) {
+        if (left + 32 + threadIdx.x < rightEnd
+                && top + threadIdx.y < bottomEnd) {
+            shared_ref[threadIdx.y * REF_SIZE + 32 + threadIdx.x] =
+                ref[(top + threadIdx.y) * w + 
+                    (left + 32 + threadIdx.x)];
+        }
+    }
+    //bottom border
+    else if (threadIdx.x < 14) {
+        if (top + 32 + (threadIdx.x - 7) < bottomEnd 
+                && left + threadIdx.y < rightEnd) {
+            shared_ref[(32 + (threadIdx.x - 7)) * REF_SIZE +
+                threadIdx.y] =
+                ref[(top + 32 + (threadIdx.x - 7)) * w 
+                    + (left + threadIdx.y)];
+        }
+    }
+    //right-bottom corner
+    else if ((threadIdx.y & 7) != 7) {
+        int x = (threadIdx.y >> 3) + 4 * (threadIdx.x - 14);
+        int y = threadIdx.y & 7;
+        if (top + 32 + y < bottomEnd && left + 32 + x < rightEnd) {
+            shared_ref[(32 + y) * REF_SIZE + (32 + x)] =
+                ref[(top + 32 + y) * w + (left + 32 + x)];
+        }
+    }
+
+    __syncthreads();
+
+    int x = 2 * threadIdx.x;
+    int y = threadIdx.y;
+
+    if (top+y<bottom && left+x<right)
     {
         int sad1, sad2;
-        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx, 
-                y-my, &sad1);
+        cuda_sad_block_8x8(shared_orig, shared_ref + y*REF_SIZE+x, 
+                ORIG_SIZE, REF_SIZE, left+x-mx, top+y-my, &sad1);
         x++;
-        cuda_sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, x-mx,
-                y-my, &sad2);
+        cuda_sad_block_8x8(shared_orig, shared_ref + y*REF_SIZE+x, 
+                ORIG_SIZE, REF_SIZE, left+x-mx, top+y-my, &sad2);
         atomicMin(&best_sadxy, min(sad1, sad2));
     }
 
@@ -153,6 +278,8 @@ void cuda_me_cc(struct c63_common *cm, int cc)
             int mv_x = ((sadxy >> 5) & 31) - 16;
             int mv_y = (sadxy & 31) - 16;
             struct macroblock *mb = &cm->curframe->mbs[cc][block_nr];
+            //printf("(%d,%d): MV = (%d,%d), sad=%d\n",mb_x,mb_y,mv_x,
+            //        mv_y,sad);
             if (sad < 512) {
                 mb->use_mv = 1;
                 mb->mv_x = mv_x;

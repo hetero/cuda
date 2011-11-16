@@ -18,10 +18,10 @@
 #define ORIG_SIZE 8
 
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
-        int stride1, int stride2, int mv_x, int mv_y, int *result)
+        int mv_xy, int *result)
 {
     int res = 0;
- 
+    
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -103,7 +103,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     block2 += 31;
 
     // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
-    *result = (res << 10) + ((mv_x + 16) << 5) + (mv_y + 16);
+    *result = (res << 10) + mv_xy;
 }
 
 __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, int w, int h)
@@ -199,19 +199,18 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     if (top+y<bottom && left+x<right)
     {
         int sad1, sad2;
+        int mv_xy = ((left+x-mx + 16) << 5) + (top+y-my + 16);
         cuda_sad_block_8x8(shared_orig, shared_ref + y*REF_SIZE+x, 
-                ORIG_SIZE, REF_SIZE, left+x-mx, top+y-my, &sad1);
+                mv_xy, &sad1);
         x++;
         cuda_sad_block_8x8(shared_orig, shared_ref + y*REF_SIZE+x, 
-                ORIG_SIZE, REF_SIZE, left+x-mx, top+y-my, &sad2);
+                mv_xy + 32, &sad2);
         atomicMin(&best_sadxy, min(sad1, sad2));
     }
 
     __syncthreads();
 
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        mv_out[block_nr].sadxy = best_sadxy;
-    }
+    mv_out[block_nr].sadxy = best_sadxy;
 }
 
 void cuda_me_cc(struct c63_common *cm, int cc)

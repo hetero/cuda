@@ -13,9 +13,9 @@ LIB_CUDA := -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
 INCLUDES = -I$(CUDA_INSTALL_PATH)/include -I$(CUDA_SDK_PATH)/C/common/inc
 
 COMMONFLAGS += $(INCLUDES)
-NVCCFLAGS += $(COMMONFLAGS) -g -G
+NVCCFLAGS += $(COMMONFLAGS) -arch=sm_13
 CXXFLAGS += $(COMMONFLAGS)
-CFLAGS += $(COMMONFLAGS) -g -O3 -Wall
+CFLAGS += $(COMMONFLAGS) -O3 -Wall
 
 OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o cuda_me.o cuda_dct.o cuda_idct.o
 OBJS_DEC = c63dec.o tables.o io.o common.o me.o dsp.o

@@ -120,10 +120,21 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     //int my = mb_y * 8;
     
     // copying ORIG global->shared
-    if (threadIdx.x < ORIG_SIZE && threadIdx.y < ORIG_SIZE)
+/*    if (threadIdx.x < ORIG_SIZE && threadIdx.y < ORIG_SIZE)
         shared_orig[threadIdx.y * ORIG_SIZE + threadIdx.x]
             = orig[(blockIdx.y * 8 + threadIdx.y) * w 
             + (blockIdx.x * 8 + threadIdx.x)];
+            */
+
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        for (int y = 0; y < 8; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                shared_orig[y*ORIG_SIZE + x] =
+                    orig[(blockIdx.y * 8 + y) * w +
+                    (blockIdx.x * 8 + x)];
+            }
+        }
+    }
 
     int left = (blockIdx.x*8 - 16);
     int top = (blockIdx.y*8 - 16);
@@ -146,7 +157,16 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
 
     //copying REF
 
-    //1st whole block
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        for (int y = 0; y < bottomEnd - top; ++y) {
+            for (int x = 0; x < rightEnd - left; ++x) {
+                shared_ref[y*REF_SIZE + x] =
+                    ref[(top + y) * w + left + x];
+            }
+        }
+    }
+
+/*    //1st whole block
     if (left + threadIdx.x < rightEnd && 
             top + threadIdx.y < bottomEnd) {
         shared_ref[threadIdx.y * REF_SIZE + threadIdx.x] =
@@ -187,22 +207,26 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
                 ref[(top + 32 + y) * w + (left + 32 + x)];
         }
     }
+    */
 
     __syncthreads();
 
     //x 2 * threadIdx.x
     //y threadIdx.y
 
-    if (top+threadIdx.y<bottom && left+ 2 * threadIdx.x<right)
+    if (top+ 8 * threadIdx.y<bottom && left + threadIdx.x<right)
     {
-        int mv_xy = ((left + (2 * threadIdx.x) - blockIdx.x * 8 + 16) << 5) 
-            + (top+threadIdx.y-blockIdx.y * 8 + 16);
-        int sad1, sad2;
-        cuda_sad_block_8x8(shared_orig, shared_ref + threadIdx.y*REF_SIZE+ 2 * threadIdx.x, 
-                &sad1);
-        cuda_sad_block_8x8(shared_orig, shared_ref + threadIdx.y*REF_SIZE+ 2 * threadIdx.x + 1, 
-                &sad2);
-        atomicMin(&best_sadxy, min(sad1 + mv_xy, sad2 + mv_xy+32));
+        int mv_xy = ((left + threadIdx.x - blockIdx.x * 8 + 16) << 5) 
+            + (top + 8 * threadIdx.y - blockIdx.y * 8 + 16);
+        int sad, minsad = INT_MAX;
+        for (int i = 0; i < 8; ++i) {
+            cuda_sad_block_8x8(shared_orig, shared_ref 
+                    + (8 * threadIdx.y + i) * REF_SIZE 
+                    + threadIdx.x, 
+                &sad);
+            minsad = min(sad + i, minsad);
+        }
+        atomicMin(&best_sadxy, minsad + mv_xy);
     }
 
     __syncthreads();
@@ -250,7 +274,7 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     
     // Invoke kernel
 
-    dim3 threadsPerBlock(16, 32);
+    dim3 threadsPerBlock(32, 4);
     dim3 numBlocks(mb_cols, mb_rows);
     
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>

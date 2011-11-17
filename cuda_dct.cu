@@ -1,10 +1,5 @@
 #include <stdint.h>
-
-#define ISQRT2 0.70710678118654f
-#define TH_X 16
-#define TH_Y 8
-#define BL_SIZE 128 
-#define BL_MB 2
+#include "cuda_common.h"
 
 __constant__ static uint8_t quanttbl[2][64] =
 {
@@ -82,24 +77,14 @@ __constant__ static float dctlookup[8][8] = {
 __device__ static void cuda_transpose_block(float *in_data, float *out_data, int col_mb)
 {
     int row_mb = (threadIdx.y + col_mb) % 8;
-    out_data[TH_X * col_mb + row_mb] = in_data[TH_X * row_mb + col_mb];
+    out_data[DCT_TH_X * col_mb + row_mb] = in_data[DCT_TH_X * row_mb + col_mb];
 }
 
 __device__ static void cuda_dct_1d(float *in_row, float *out_cell, int col_mb)
 {
     // we can add constant-conflict-free
     int act = col_mb;
-    float dct = 0.0f;
-/*
-    do
-    {
-        dct += in_row[act] * dctlookup[act][col_mb];
-        act = (act + 1) % 8;
-    }
-    while (act != col_mb);
-*/
-
-    dct += in_row[act] * dctlookup[act][col_mb];
+    float dct = in_row[act] * dctlookup[act][col_mb];
     dct += in_row[act = (act + 1) & 7] * dctlookup[act][col_mb];
     dct += in_row[act = (act + 1) & 7] * dctlookup[act][col_mb];
     dct += in_row[act = (act + 1) & 7] * dctlookup[act][col_mb];
@@ -125,7 +110,7 @@ __device__ static void cuda_scale_block(float *in_data, float *out_data, int col
 {
     float a1 = !(col_mb) ? ISQRT2 : 1.0f;
     float a2 = !(threadIdx.y) ? ISQRT2 : 1.0f;
-    out_data[TH_X * threadIdx.y + col_mb] = in_data[TH_X * threadIdx.y + col_mb] * a1 * a2;
+    out_data[DCT_TH_X * threadIdx.y + col_mb] = in_data[DCT_TH_X * threadIdx.y + col_mb] * a1 * a2;
 }
 
 __device__ static void cuda_quantize_block(float *in_data, float *out_data, uint8_t id_quant, int col_mb)
@@ -133,20 +118,20 @@ __device__ static void cuda_quantize_block(float *in_data, float *out_data, uint
     // better const memory accesing
     uint8_t u = zigzag_U[8 * threadIdx.y + col_mb];
     uint8_t v = zigzag_V[8 * threadIdx.y + col_mb];
-    out_data[TH_X * threadIdx.y + col_mb] =
-        rintf((in_data[TH_X * v + u] / 4.0f) / quanttbl[id_quant][8 * threadIdx.y + col_mb]);
+    out_data[DCT_TH_X * threadIdx.y + col_mb] =
+        rintf((in_data[DCT_TH_X * v + u] / 4.0f) / quanttbl[id_quant][8 * threadIdx.y + col_mb]);
 }
 
 __device__ static void cuda_dct_quant_block_8x8(float *mb, float *mb2, int16_t *out_data, uint8_t id_quant)
 {
-    int first_col = 8 * (threadIdx.x / 8);
-    int first_col_row = TH_X * threadIdx.y + first_col;
+    int first_col = (threadIdx.x >> 3) << 3;
+    int first_col_row = DCT_TH_X * threadIdx.y + first_col;
     int col_mb = threadIdx.x & 7;
-    cuda_dct_1d(mb + first_col_row, mb2 + TH_X * threadIdx.y + threadIdx.x, col_mb);
+    cuda_dct_1d(mb + first_col_row, mb2 + DCT_TH_X * threadIdx.y + threadIdx.x, col_mb);
     __syncthreads();
     cuda_transpose_block(mb2 + first_col, mb + first_col, col_mb);
     __syncthreads();
-    cuda_dct_1d(mb + first_col_row, mb2 + TH_X * threadIdx.y + threadIdx.x, col_mb);
+    cuda_dct_1d(mb + first_col_row, mb2 + DCT_TH_X * threadIdx.y + threadIdx.x, col_mb);
     __syncthreads();
     cuda_transpose_block(mb2 + first_col, mb + first_col, col_mb);
     __syncthreads();
@@ -154,25 +139,25 @@ __device__ static void cuda_dct_quant_block_8x8(float *mb, float *mb2, int16_t *
     __syncthreads();
     cuda_quantize_block(mb2 + first_col, mb + first_col, id_quant, col_mb);
     __syncthreads();
-    out_data[8 * first_col + 8 * threadIdx.y + col_mb] = mb[TH_X * threadIdx.y + threadIdx.x];
+    out_data[8 * first_col + 8 * threadIdx.y + col_mb] = mb[DCT_TH_X * threadIdx.y + threadIdx.x];
 }
 
 __global__ static void k_dct_quant_block_8x8(uint8_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, int16_t *out_data, uint8_t id_quant)
 {
-    __shared__ float mb[BL_SIZE], mb2[BL_SIZE];
-    int first_col_block = TH_X * blockIdx.x;
+    __shared__ float mb[DCT_BL_SIZE], mb2[DCT_BL_SIZE];
+    int first_col_block = DCT_TH_X * blockIdx.x;
     if (first_col_block + threadIdx.x < width)
     {
         int first_row_block = 8 * width * blockIdx.y;
 	int idxIn = (first_row_block + first_col_block) + (width * threadIdx.y + threadIdx.x);
-        mb[TH_X * threadIdx.y + threadIdx.x] = (int16_t)in_data[idxIn] - prediction[idxIn];
+        mb[DCT_TH_X * threadIdx.y + threadIdx.x] = (int16_t)in_data[idxIn] - prediction[idxIn];
         // we can assume that one row is done in the same time
         // because it is done by the same half-warp 
         //__syncthreads();
         cuda_dct_quant_block_8x8(
             mb,
             mb2,
-            out_data + (first_row_block + BL_SIZE * blockIdx.x),
+            out_data + (first_row_block + DCT_BL_SIZE * blockIdx.x),
             id_quant);
     }
 }
@@ -189,8 +174,8 @@ __host__ void cuda_dct_quantize(uint8_t *in_data, uint8_t *prediction,
     cudaMalloc(&d_out_data, size * sizeof(int16_t));
     cudaMemcpy(d_in_data, in_data, size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_prediction, prediction, size, cudaMemcpyHostToDevice);
-    dim3 threadsPerBlock(TH_X, TH_Y);
-    dim3 blocksPerGrid((width + TH_X - 1) / TH_X, height / 8);
+    dim3 threadsPerBlock(DCT_TH_X, DCT_TH_Y);
+    dim3 blocksPerGrid((width + DCT_TH_X - 1) / DCT_TH_X, height / 8);
     k_dct_quant_block_8x8<<<blocksPerGrid, threadsPerBlock>>>(d_in_data, d_prediction, width, height, d_out_data, id_quant);
     cudaMemcpy(out_data, d_out_data, size * sizeof(int16_t), cudaMemcpyDeviceToHost);
     cudaFree(d_in_data);

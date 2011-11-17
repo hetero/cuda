@@ -170,20 +170,29 @@ __global__ static void k_dequant_idct_block_8x8(int16_t *in_data, uint8_t *predi
     out_data[idxPredOut] = tmp;
 }
 
-__host__ void cuda_dequantize_idct(int16_t *in_data, uint8_t *prediction, uint32_t width, uint32_t height, uint8_t *out_data, uint8_t id_quant)
+__host__ void cuda_dequantize_idct(int16_t *in_data, uint8_t *prediction,
+        uint32_t width, uint32_t height, uint8_t *out_data, uint8_t id_quant,
+        int16_t *d_in_data, uint8_t *d_prediction, uint8_t *d_out_data)
 {
     size_t size = width * height;
-    int16_t *d_in_data;
-    uint8_t *d_out_data, *d_prediction;
-    cudaMalloc(&d_in_data, size * sizeof(int16_t));
-    cudaMalloc(&d_prediction, size);
-    cudaMalloc(&d_out_data, size);
     cudaMemcpy(d_in_data, in_data, size * sizeof(int16_t), cudaMemcpyHostToDevice);
     cudaMemcpy(d_prediction, prediction, size, cudaMemcpyHostToDevice);
     dim3 threadsPerBlock(DCT_TH_X, DCT_TH_Y);
     dim3 blocksPerGrid((width + DCT_TH_X - 1) / DCT_TH_X, height / 8);
     k_dequant_idct_block_8x8<<<blocksPerGrid, threadsPerBlock>>>(d_in_data, d_prediction, width, height, d_out_data, id_quant);
     cudaMemcpy(out_data, d_out_data, size, cudaMemcpyDeviceToHost);
+}
+
+__host__ void cuda_idct_malloc(size_t size, int16_t **d_in_data, uint8_t **d_prediction, uint8_t **d_out_data)
+{
+    cudaMalloc(d_in_data, size * sizeof(int16_t));
+    cudaMalloc(d_prediction, size);
+    cudaMalloc(d_out_data, size);
+}
+
+
+__host__ void cuda_idct_free(int16_t *d_in_data, uint8_t *d_prediction, uint8_t *d_out_data)
+{
     cudaFree(d_in_data);
     cudaFree(d_prediction);
     cudaFree(d_out_data);

@@ -14,23 +14,14 @@
 #include "c63.h"
 #include "cuda_me.h"
 
-#define REF_SIZE 39
+#define REF_WIDTH 48
+#define REF_HEIGHT 39
 #define ORIG_SIZE 8
 
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int *result)
 {
     int res = 0;
-    
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -40,7 +31,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -50,7 +41,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -60,7 +51,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -70,7 +61,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -80,7 +71,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -90,7 +81,7 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
 
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
@@ -100,7 +91,17 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
     res = __sad(*block2, *block1, res); ++block1; ++block2;
-    block2 += 31;
+    block2 += 40;
+
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    res = __sad(*block2, *block1, res); ++block1; ++block2;
+    block2 += 40;
 
     // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
     *result = (res << 10);
@@ -110,7 +111,7 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
 {
     __shared__ int best_sadxy;
     __shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
-    __shared__ uint8_t shared_ref[REF_SIZE * REF_SIZE];
+    __shared__ uint8_t shared_ref[REF_HEIGHT * REF_WIDTH];
     best_sadxy = INT_MAX;
 
     //int mb_x = blockIdx.x;
@@ -160,7 +161,7 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         for (int y = 0; y < bottomEnd - top; ++y) {
             for (int x = 0; x < rightEnd - left; ++x) {
-                shared_ref[y*REF_SIZE + x] =
+                shared_ref[y*REF_WIDTH + x] =
                     ref[(top + y) * w + left + x];
             }
         }
@@ -211,20 +212,21 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
 
     __syncthreads();
 
-    //x 2 * threadIdx.x
-    //y threadIdx.y
+    int x = 4 * (threadIdx.x & 7);
+    int y = 2 * (threadIdx.y) + (threadIdx.x >> 3);
 
-    if (top+ 8 * threadIdx.y<bottom && left + threadIdx.x<right)
+    if (top+ y < bottom && 
+            left + x < right)
     {
-        int mv_xy = ((left + threadIdx.x - blockIdx.x * 8 + 16) << 5) 
-            + (top + 8 * threadIdx.y - blockIdx.y * 8 + 16);
+        int mv_xy = ((left + x - blockIdx.x * 8 + 16) << 5) 
+            + (top + y - blockIdx.y * 8 + 16);
         int sad, minsad = INT_MAX;
         for (int i = 0; i < 8; ++i) {
             cuda_sad_block_8x8(shared_orig, shared_ref 
-                    + (8 * threadIdx.y + i) * REF_SIZE 
-                    + threadIdx.x, 
+                    + (y + (i >> 2)) * REF_WIDTH
+                    + x + (i & 3), 
                 &sad);
-            minsad = min(sad + i, minsad);
+            minsad = min(sad + ((i & 3) << 5) + (i >> 2), minsad);
         }
         atomicMin(&best_sadxy, minsad + mv_xy);
     }
@@ -274,7 +276,7 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     
     // Invoke kernel
 
-    dim3 threadsPerBlock(32, 4);
+    dim3 threadsPerBlock(8, 16);
     dim3 numBlocks(mb_cols, mb_rows);
     
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>

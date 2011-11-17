@@ -124,10 +124,10 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     {
         /* Motion Estimation */
         //cuda_c63_motion_estimate(cm);
-        c63_motion_estimate(cm);
+        //c63_motion_estimate(cm);
 
         /* Motion Compensation */
-        c63_motion_compensate(cm);
+        //c63_motion_compensate(cm);
     }
 
     /* DCT and Quantization */

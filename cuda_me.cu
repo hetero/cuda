@@ -107,12 +107,13 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     *result = (res << 10);
 }
 
-__global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, int w, int h)
+__global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, int h)
 {
     __shared__ int best_sadxy;
     __shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
     __shared__ uint8_t shared_ref[REF_HEIGHT * REF_WIDTH];
     best_sadxy = INT_MAX;
+    __syncthreads();
 
     //int mb_x = blockIdx.x;
     //int mb_y = blockIdx.y;
@@ -166,6 +167,7 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
             }
         }
     }
+    
 
 /*    //1st whole block
     if (left + threadIdx.x < rightEnd && 
@@ -233,7 +235,9 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, mv_out_t *mv_out, in
 
     __syncthreads();
 
-    mv_out[blockIdx.y * w / 8 + blockIdx.x].sadxy = best_sadxy;
+    if (threadIdx.x == 0 && threadIdx.y == 0)
+        mv_out[blockIdx.y * w / 8 + blockIdx.x] = best_sadxy;
+    __syncthreads();
 }
 
 void cuda_me_cc(struct c63_common *cm, int cc)
@@ -242,16 +246,16 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     int mb_x, mb_y;
 
     uint8_t *orig, *ref;
-    mv_out_t *mv_out_dev, *mv_out_host;
+    int *mv_out_dev, *mv_out_host;
     int frame_size = cm->padw[cc] * cm->padh[cc];
     int mb_cols = cm->padw[cc] / 8;
     int mb_rows = cm->padh[cc] / 8;
     int blocks = mb_cols * mb_rows;
     cudaMalloc(&orig, frame_size * sizeof(uint8_t));
     cudaMalloc(&ref, frame_size * sizeof(uint8_t));
-    cudaMalloc(&mv_out_dev, blocks * sizeof(mv_out_t));
+    cudaMalloc(&mv_out_dev, blocks * sizeof(int));
 
-    mv_out_host = (mv_out_t *) malloc(blocks * sizeof(mv_out_t));
+    mv_out_host = (int *) malloc(blocks * sizeof(int));
 
     // Copy vectors from host memory to device memory
     uint8_t *cur, *recons;
@@ -281,9 +285,9 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
         (orig, ref, mv_out_dev, cm->padw[cc], cm->padh[cc]); 
-    
+     
     // Copy result from device memory to host memory
-    cudaMemcpy(mv_out_host, mv_out_dev, blocks * sizeof(mv_out_t), 
+    cudaMemcpy(mv_out_host, mv_out_dev, blocks * sizeof(int), 
             cudaMemcpyDeviceToHost);
 
     // Free device memory
@@ -295,11 +299,12 @@ void cuda_me_cc(struct c63_common *cm, int cc)
         for (mb_x = 0; mb_x < mb_cols; ++mb_x) {
             int block_nr = mb_y * mb_cols + mb_x;
             // sadxy = sad*1024 + (mv_x+16)*32 + (mv_y+16)
-            int sadxy = mv_out_host[block_nr].sadxy;
+            int sadxy = mv_out_host[block_nr];
             int sad = sadxy >> 10;
             int mv_x = ((sadxy >> 5) & 31) - 16;
             int mv_y = (sadxy & 31) - 16;
             struct macroblock *mb = &cm->curframe->mbs[cc][block_nr];
+            
             //printf("(%d,%d): MV = (%d,%d), sad=%d\n",mb_x,mb_y,mv_x,
             //        mv_y,sad);
             if (sad < 512) {

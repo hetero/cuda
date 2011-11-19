@@ -13,6 +13,7 @@
 
 #include "c63.h"
 #include "cuda_me.h"
+//#include "cuPrintf.cu"
 
 #define REF_WIDTH 48
 #define REF_HEIGHT 39
@@ -107,68 +108,6 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
     *result = (res << 10);
 }
 
-__global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, int h)
-{
-    __shared__ int best_sadxy;
-    __shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
-    __shared__ uint8_t shared_ref[REF_HEIGHT * REF_WIDTH];
-    best_sadxy = INT_MAX;
-    __syncthreads();
-
-    //int mb_x = blockIdx.x;
-    //int mb_y = blockIdx.y;
-    
-    //int mx = mb_x * 8;
-    //int my = mb_y * 8;
-    
-    // copying ORIG global->shared
-/*    if (threadIdx.x < ORIG_SIZE && threadIdx.y < ORIG_SIZE)
-        shared_orig[threadIdx.y * ORIG_SIZE + threadIdx.x]
-            = orig[(blockIdx.y * 8 + threadIdx.y) * w 
-            + (blockIdx.x * 8 + threadIdx.x)];
-            */
-
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        for (int y = 0; y < 8; ++y) {
-            for (int x = 0; x < 8; ++x) {
-                shared_orig[y*ORIG_SIZE + x] =
-                    orig[(blockIdx.y * 8 + y) * w +
-                    (blockIdx.x * 8 + x)];
-            }
-        }
-    }
-
-    int left = (blockIdx.x*8 - 16);
-    int top = (blockIdx.y*8 - 16);
-    int right = (blockIdx.x*8 + 16);
-    int bottom = (blockIdx.y*8 + 16);
-
-    // Make sure we are within bounds of reference frame
-    // TODO: Support partial frame bounds
-    if (left < 0)
-        left = 0;
-    if (top < 0)
-        top = 0;
-    if (right > (w - 8))
-        right = w - 8;
-    if (bottom > (h - 8))
-        bottom = h - 8;
-
-#define rightEnd (right+7)
-#define bottomEnd (bottom+7)
-
-    //copying REF
-
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        for (int y = 0; y < bottomEnd - top; ++y) {
-            for (int x = 0; x < rightEnd - left; ++x) {
-                shared_ref[y*REF_WIDTH + x] =
-                    ref[(top + y) * w + left + x];
-            }
-        }
-    }
-    
-
 /*    //1st whole block
     if (left + threadIdx.x < rightEnd && 
             top + threadIdx.y < bottomEnd) {
@@ -212,12 +151,82 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
     }
     */
 
+__global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, int h)
+{
+    __shared__ int best_sadxy;
+    __shared__ uint8_t shared_orig[ORIG_SIZE * ORIG_SIZE];
+    __shared__ uint8_t shared_ref[REF_HEIGHT * REF_WIDTH];
+    best_sadxy = INT_MAX;
+
+    
+    // copying ORIG global->shared
+    if (threadIdx.y < 8) {
+        int x = 4 * (threadIdx.x % 2) + (threadIdx.y / 2);
+        int y = (threadIdx.x / 2) + 4 * (threadIdx.y % 2);
+        shared_orig[y * ORIG_SIZE + x]
+            = orig[(blockIdx.y * 8 + y) * w 
+            + (blockIdx.x * 8 + x)];
+    }
+    __syncthreads();        
+
+    int left = (blockIdx.x*8 - 16);
+    int top = (blockIdx.y*8 - 16);
+    int right = (blockIdx.x*8 + 16);
+    int bottom = (blockIdx.y*8 + 16);
+
+    // Make sure we are within bounds of reference frame
+    // TODO: Support partial frame bounds
+    if (left < 0)
+        left = 0;
+    if (top < 0)
+        top = 0;
+    if (right > (w - 8))
+        right = w - 8;
+    if (bottom > (h - 8))
+        bottom = h - 8;
+
+#define rightEnd (right+7)
+#define bottomEnd (bottom+7)
+
+    int x = 4 * threadIdx.x;
+    int y = 2 * threadIdx.y;
+
+    //copying REF
+
+    for (int i = 0; i < 8; i++) {
+        if (y < bottom - top && x < right - left) {
+            int i_y = y + (i >> 2);
+            int i_x = x + (i & 3);
+            shared_ref[i_y * REF_WIDTH + i_x] = 
+                ref[(top + i_y) * w + left + i_x];
+        }
+    }
     __syncthreads();
 
-    int x = 4 * (threadIdx.x & 7);
-    int y = 2 * (threadIdx.y) + (threadIdx.x >> 3);
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        for (int y = bottom - top; y < bottomEnd - top; ++y) {
+            for (int x = 0; x < right - left; ++x) {
+                shared_ref[y*REF_WIDTH + x] =
+                    ref[(top + y) * w + left + x];
+            }
+        }
+        for (int y = 0; y < bottom - top; ++y) {
+            for (int x = right-left; x < rightEnd - left; ++x) {
+                shared_ref[y*REF_WIDTH + x] =
+                    ref[(top + y) * w + left + x];
+            }
+        }
+        for (int y = bottom - top; y < bottomEnd - top; ++y) {
+            for (int x = right - left; x < rightEnd - left; ++x) {
+                shared_ref[y*REF_WIDTH + x] =
+                    ref[(top + y) * w + left + x];
+            }
+        }
+    }
 
-    if (top+ y < bottom && 
+    __syncthreads();
+
+    if (top + y < bottom && 
             left + x < right)
     {
         int mv_xy = ((left + x - blockIdx.x * 8 + 16) << 5) 
@@ -235,9 +244,13 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
 
     __syncthreads();
 
-    if (threadIdx.x == 0 && threadIdx.y == 0)
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
         mv_out[blockIdx.y * w / 8 + blockIdx.x] = best_sadxy;
+        //if(blockIdx.x == 21 && blockIdx.y == 17)
+        //    cuPrintf("After out\n");
+    }
     __syncthreads();
+    
 }
 
 void cuda_me_cc(struct c63_common *cm, int cc)
@@ -320,7 +333,10 @@ void cuda_me_cc(struct c63_common *cm, int cc)
 }
 
 void cuda_c63_motion_estimate(struct c63_common *cm) {
+//    cudaPrintfInit();
     for (int cc = 0; cc <= 2; cc++) {
         cuda_me_cc(cm, cc);
     }
+//    cudaPrintfDisplay();
+//    cudaPrintfEnd();
 }

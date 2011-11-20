@@ -156,18 +156,18 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
                 ref[(top + i_y) * w + left + i_x];
         }
     }
-
     // bottom
     int x2 = 4 * threadIdx.x + 2 * (threadIdx.y / 8);
-    int y2 = bottom - top + 4 * ((threadIdx.y % 8) / 4) 
-        + (threadIdx.y % 4) / 2 + 2 * (threadIdx.y % 2);
+    int y2 = bottom - top + 1 * ((threadIdx.y % 8) / 4) 
+        + 4 * ((threadIdx.y % 4) / 2) + 2 * (threadIdx.y % 2);
+    
     if (x2 < right - left) {
         shared_ref[y2 * REF_WIDTH + x2] = 
             ref[(top + y2) * w + left + x2];
         shared_ref[y2 * REF_WIDTH + x2 + 1] = 
             ref[(top + y2) * w + left + x2 + 1];
     }
-
+    
     // right
     if (threadIdx.y % 2 == 0) {
         int x = 4 * (threadIdx.x % 2);

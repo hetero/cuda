@@ -210,18 +210,18 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
-    /*
+   /* 
     for (int b = 0; b < 16; b++)
         for (int a = 0; a < 8; a++) {
-            for (int i = 0; i < 8; ++i) {
-                int y = (2 * b + (a >> 3)
-                + (i >> 2));
-                int x = 4 * (a & 7) + (i & 3);
+             int x = 4 * a + 2 * b / 8;
+             int y = 4 * ((b % 8) / 4) 
+                   + (b % 4) / 2 + 2 * (b % 2);
+
                 printf("Watek (%d, %d) \t-> pixel (%d, %d)\n",a,b,x,y);
             }
-        }
+       
     return 0;
-      */   
+     */    
 
     int c;
     yuv_t *image;

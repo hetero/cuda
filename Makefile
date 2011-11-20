@@ -13,7 +13,7 @@ LIB_CUDA := -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
 INCLUDES = -I$(CUDA_INSTALL_PATH)/include -I$(CUDA_SDK_PATH)/C/common/inc
 
 COMMONFLAGS += $(INCLUDES)
-NVCCFLAGS += $(COMMONFLAGS) -O3 -arch=sm_13
+NVCCFLAGS += $(COMMONFLAGS) -O3 -arch=sm_13 --ptxas-options=-v #--maxrregcount 16
 CXXFLAGS += $(COMMONFLAGS)
 CFLAGS += $(COMMONFLAGS) -O3 -Wall
 

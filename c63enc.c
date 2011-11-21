@@ -341,8 +341,11 @@ int main(int argc, char **argv)
         cuda_copy_image(width, height, origY, origU, origV);
 
         fprintf(stderr, "Encoding frame %d, ", numframes);
-        //c63_encode_image(cuda_cm, image);
-        cuda_c63_encode_image(cm, origY, origU, origV);
+        //c63_encode_image(cm, image);
+        cuda_c63_encode_image(width, height,
+            origY, origU, origV, reconsY, reconsU, reconsV,
+            predY, predU, predV, residY, residU, residV,
+            mbs);
 
         free(image->Y);
         free(image->U);

@@ -8,25 +8,28 @@ void cuda_init_c63_encode(int width, int height,
         uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
         uint8_t *predY, uint8_t *predU, uint8_t *predV,
         int16_t *residY, int16_t *residU, int16_t *residV,
-        struct macroblock *mbs[3];
-    )
+        struct macroblock *mbs[3])
 {
     int ypw = 16 * ((width + 15) / 16);
     int yph = 16 * ((height + 15) / 16);
-    cudaMalloc(&origY, width * (height + 8));
-    cudaMalloc(&origU, width * height);
-    cudaMalloc(&origV, width * height);
-    cudaMalloc(&reconsY, width * (height + 8));
-    cudaMalloc(&reconsU, width * height);
-    cudaMalloc(&reconsV, width * height);
-    cudaMalloc(&predY, width * (height + 8));
-    cudaMalloc(&predU, width * height);
-    cudaMalloc(&predV, width * height);
-    cudaMalloc(&residY, width * (height + 8) * sizeof(int16_t));
-    cudaMalloc(&residU, width * height * sizeof(int16_t));
-    cudaMalloc(&residV, width * height * sizeof(int16_t));
+	int uvpw = 8 * ((width/2 + 7) / 8);
+	int uvph = 8 * ((height/2 + 7) / 8);
+    cudaMalloc(&origY, ypw * yph);
+    cudaMalloc(&origU, uvpw * uvph);
+    cudaMalloc(&origV, uvpw * uvph);
+    cudaMalloc(&reconsY, ypw * yph);
+    cudaMalloc(&reconsU, uvpw * uvph);
+    cudaMalloc(&reconsV, uvpw * uvph);
+    cudaMalloc(&predY, ypw * yph);
+    cudaMalloc(&predU, uvpw * uvph);
+    cudaMalloc(&predV, uvpw * uvph);
+    cudaMalloc(&residY, ypw * yph * sizeof(int16_t));
+    cudaMalloc(&residU, uvpw * uvph * sizeof(int16_t));
+    cudaMalloc(&residV, uvpw * uvph * sizeof(int16_t));
 
-    cudaMalloc(&mbs[0], size
+    cudaMalloc(&mbs[0], ypw * yph / 64 * sizeof(struct macroblock));
+    cudaMalloc(&mbs[1], uvpw * uvph / 64 * sizeof(struct macroblock));
+    cudaMalloc(&mbs[2], uvpw * uvph / 64 * sizeof(struct macroblock));
 }
 
 void cuda_free_c63_encode(struct c63_common *cm) {
@@ -42,6 +45,9 @@ void cuda_free_c63_encode(struct c63_common *cm) {
     cudaFree(residY);
     cudaFree(residU);
     cudaFree(residV);
+	cudaFree(mbs[0]);
+	cudaFree(mbs[1]);
+	cudaFree(mbs[2]);
 }
 
 void cuda_copy_image(int width, int height, yuv_t *image,
@@ -61,19 +67,21 @@ __global__ void encode_intro(int width, int height,
         uint8_t *predY, uint8_t *predU, uint8_t *predV,
         int16_t *residY, int16_t *residU, int16_t *residV,
         struct macroblock *mbs[3])
+{
     /* Advance to next frame */
-    cuda_destroy_frame(cm->refframe);
-    cm->refframe = cm->curframe;
-    cm->curframe = cuda_create_frame(cm, image);
+//    cuda_destroy_frame(cm->refframe);
+//    cm->refframe = cm->curframe;
+//    cm->curframe = cuda_create_frame(cm, image);
 
     /* Check if keyframe */
-    if (cm->framenum == 0 || cm->frames_since_keyframe == cm->keyframe_interval)
+/*    if (cm->framenum == 0 || cm->frames_since_keyframe == cm->keyframe_interval)
     {   
         cm->curframe->keyframe = 1;
         cm->frames_since_keyframe = 0;
     }   
     else
-        cm->curframe->keyframe = 0;
+        cm->curframe->keyframe = 0;*/
+	;
 }
             
 void cuda_c63_encode_image(int width, int height, 

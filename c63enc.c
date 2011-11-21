@@ -14,6 +14,7 @@
 #include "cuda_me.h"
 #include "cuda_dct.h"
 #include "cuda_idct.h"
+#include "cuda_encode.h"
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -23,12 +24,6 @@ static int limit_numframes = 0;
 
 static uint32_t width;
 static uint32_t height;
-static uint32_t yph;
-static uint32_t ypw;
-static uint32_t uph;
-static uint32_t upw;
-static uint32_t vph;
-static uint32_t vpw;
 
 // DCT device pointers
 static uint8_t *dct_in_data_y;
@@ -224,18 +219,21 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
-   /* 
-    for (int b = 0; b < 16; b++)
-        for (int a = 0; a < 8; a++) {
-             int x = 4 * a + 2 * b / 8;
-             int y = 4 * ((b % 8) / 4) 
-                   + (b % 4) / 2 + 2 * (b % 2);
+    // device global arrays
+    uint8_t *origY;
+    uint8_t *origU;
+    uint8_t *origV;
+    uint8_t *reconsY;
+    uint8_t *reconsU;
+    uint8_t *reconsV;
+    uint8_t *predY;
+    uint8_t *predU;
+    uint8_t *predV;
+    int16_t *residY;
+    int16_t *residU;
+    int16_t *residV;
 
-                printf("Watek (%d, %d) \t-> pixel (%d, %d)\n",a,b,x,y);
-            }
-       
-    return 0;
-     */    
+    struct macroblock *mbs[3];
 
     int c;
     yuv_t *image;
@@ -274,14 +272,11 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-
     ///
-
     //height = 288;
     //width = 352;
     //limit_numframes = 2;
     //output_file = "~/foreman.c63";
-
     ///
     
     outfile = fopen(output_file, "wb");
@@ -297,14 +292,11 @@ int main(int argc, char **argv)
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
 
-
-    /* Calculate the padded width and height */
-    ypw = (uint32_t)(ceil(width/8.0f)*8);
-    yph = (uint32_t)(ceil(height/8.0f)*8);
-    upw = (uint32_t)(ceil(width*UX/(YX*8.0f))*8);
-    uph = (uint32_t)(ceil(height*UY/(YY*8.0f))*8);
-    vpw = (uint32_t)(ceil(width*VX/(YX*8.0f))*8);
-    vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
+    cuda_init_c63_encode(width, height,
+            origY, origU, origV, reconsY, reconsU, reconsV,
+            predY, predU, predV, residY, residU, residV,
+            mbs
+        );
 
     input_file = argv[optind];
 
@@ -325,6 +317,10 @@ int main(int argc, char **argv)
 
 
     /* Encode input frames */
+
+
+
+//TODO
     cuda_dct_malloc(cm->padw[0] * cm->padh[0], &dct_in_data_y,
             &dct_prediction_y, &dct_out_data_y);
     cuda_dct_malloc(cm->padw[1] * cm->padh[1], &dct_in_data_uv,
@@ -333,6 +329,8 @@ int main(int argc, char **argv)
             &idct_prediction_y, &idct_out_data_y);
     cuda_idct_malloc(cm->padw[1] * cm->padh[1], &idct_in_data_uv,
             &idct_prediction_uv, &idct_out_data_uv);
+    ///////////////
+    
     int numframes = 0;
     while(!feof(infile))
     {
@@ -340,9 +338,11 @@ int main(int argc, char **argv)
         if (!image) {
             break;
         }
+        cuda_copy_image(width, height, origY, origU, origV);
 
         fprintf(stderr, "Encoding frame %d, ", numframes);
-        c63_encode_image(cm, image);
+        //c63_encode_image(cuda_cm, image);
+        cuda_c63_encode_image(cm, origY, origU, origV);
 
         free(image->Y);
         free(image->U);
@@ -355,10 +355,19 @@ int main(int argc, char **argv)
         if (limit_numframes && numframes >= limit_numframes)
             break;
     }
+
+
+    //TODO....................
     cuda_dct_free(dct_in_data_y, dct_prediction_y, dct_out_data_y);
     cuda_dct_free(dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
     cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
     cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
+
+    cuda_free_c63_encode(width, height,
+            origY, origU, origV, reconsY, reconsU, reconsV,
+            predY, predU, predV, residY, residU, residV,
+            mbs
+        );
 
     fclose(outfile);
     fclose(infile);

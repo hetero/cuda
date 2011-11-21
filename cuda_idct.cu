@@ -74,12 +74,6 @@ __constant__ static float dctlookup[8][8] = {
     {1.000000f, -0.980785f, 0.923880f, -0.831470f, 0.707107f, -0.555570f, 0.382683f, -0.195090f, },
 };
 
-__device__ static void cuda_transpose_block(float *in_data, float *out_data, const int &col_mb)
-{
-    int row_mb = (threadIdx.y + col_mb) % 8;
-    out_data[DCT_TH_X * col_mb + row_mb] = in_data[DCT_TH_X * row_mb + col_mb];
-}
-
 __device__ static void cuda_scale_block(float *in_data, float *out_data, const int &col_mb)
 {
 #define row_mb (threadIdx.y)
@@ -92,17 +86,6 @@ __device__ static void cuda_scale_block(float *in_data, float *out_data, const i
 __device__ static void cuda_idct_1d(float *in_row, float *out_cell, const int &col_mb)
 {
 #define dct_col (threadIdx.y)
-    /*
-    int act = col_mb;
-    float idct = in_row[act] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    idct += in_row[act = (act + 1) & 7] * dctlookup[col_mb][act];
-    */
     float idct = in_row[7] * dctlookup[dct_col][7];
     idct += in_row[0] * dctlookup[dct_col][0];
     idct += in_row[1] * dctlookup[dct_col][1];
@@ -137,11 +120,8 @@ __device__ static void cuda_dequant_idct_block_8x8(
     __syncthreads();
     cuda_idct_1d(mb + first_col_row, mb2 + block_pos, col_mb);
     __syncthreads();
-//    cuda_transpose_block(mb2 + first_col, mb + first_col, col_mb);
-//    __syncthreads();
     cuda_idct_1d(mb2 + first_col_row, mb + block_pos, col_mb);
     __syncthreads();
-//    cuda_transpose_block(mb2 + first_col, mb + first_col, col_mb);
 }
 
 __global__ static void k_dequant_idct_block_8x8(

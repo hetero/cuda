@@ -138,7 +138,9 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
+        start();
         cuda_c63_motion_estimate(cm);
+        stop();
         //c63_motion_estimate(cm);
         /* Motion Compensation */
         c63_motion_compensate(cm);
@@ -335,9 +337,7 @@ int main(int argc, char **argv)
     int numframes = 0;
     while(!feof(infile))
     {
-        start(); 
         image = read_yuv(infile);
-        stop();
         if (!image) {
             break;
         }

@@ -22,89 +22,35 @@
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int *result)
 {
-    int res = 0;
+    int sum, minsad = INT_MAX;
+    uint8_t *b1, *b2;
 
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1;
-    block2 += 41;
-
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res); ++block1; ++block2;
-    res = __sad(*block2, *block1, res);
-
+    for (int k = 0; k < 4; ++k) {
+        sum = 0;
+        b1 = block1;
+        b2 = block2 + k;
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                sum = __sad(*b2, *b1, sum); ++b1; ++b2;
+            }
+            b2 += 40;
+        }
+        minsad = min((sum << 10) + k, minsad);
+    }
+    for (int k = 0; k < 4; ++k) {
+        sum = 0;
+        b1 = block1;
+        b2 = block2 + REF_WIDTH + k;
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                sum = __sad(*b2, *b1, sum); ++b1; ++b2;
+            }
+            b2 += 40;
+        }
+        minsad = min((sum << 10) + 32 + k, minsad);
+    }
     // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
-    *result = (res << 10);
+    *result = minsad;
 }
 
 __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, int h)
@@ -202,27 +148,10 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
     {
         int mv_xy = (left + x - blockIdx.x * 8 + 16) 
             + ((top + y - blockIdx.y * 8 + 16) << 5);
-        int sad, minsad = INT_MAX;
+        int sad;
 
         cuda_sad_block_8x8(shared_orig, shared_ref + y * REF_WIDTH + x, &sad);
-        minsad = min(sad, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + y * REF_WIDTH + x + 1, &sad);
-        minsad = min(sad + 1, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + y * REF_WIDTH + x + 2, &sad);
-        minsad = min(sad + 2, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + y * REF_WIDTH + x + 3, &sad);
-        minsad = min(sad + 3, minsad);
-
-        cuda_sad_block_8x8(shared_orig, shared_ref + (y + 1) * REF_WIDTH + x, &sad);
-        minsad = min(sad + 32, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + (y + 1) * REF_WIDTH + x + 1, &sad);
-        minsad = min(sad + 33, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + (y + 1) * REF_WIDTH + x + 2, &sad);
-        minsad = min(sad + 34, minsad);
-        cuda_sad_block_8x8(shared_orig, shared_ref + (y + 1) * REF_WIDTH + x + 3, &sad);
-        minsad = min(sad + 35, minsad);
-
-        atomicMin(&best_sadxy, minsad + mv_xy);
+        atomicMin(&best_sadxy, sad + mv_xy);
     }
 
     __syncthreads();

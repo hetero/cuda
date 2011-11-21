@@ -31,7 +31,9 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         b2 = block2 + k;
         for (int i = 0; i < 8; ++i) {
             for (int j = 0; j < 8; ++j) {
-                sum = __sad(*b2, *b1, sum); ++b1; ++b2;
+                int l1 = *b1;
+                int l2 = *b2;
+                sum = __sad(l2, l1, sum); ++b1; ++b2;
             }
             b2 += 40;
         }
@@ -43,7 +45,9 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         b2 = block2 + REF_WIDTH + k;
         for (int i = 0; i < 8; ++i) {
             for (int j = 0; j < 8; ++j) {
-                sum = __sad(*b2, *b1, sum); ++b1; ++b2;
+                int l1 = *b1;
+                int l2 = *b2;
+                sum = __sad(l2, l1, sum); ++b1; ++b2;
             }
             b2 += 40;
         }

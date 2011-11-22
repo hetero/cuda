@@ -137,15 +137,15 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
         /* Motion Compensation */
         c63_motion_compensate(cm);
     }
-   /* 
+    
     dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
     dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
     dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
     dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
     dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
     dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
-   */
-    
+   
+  /*  
     cuda_dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, 0, dct_in_data_y, dct_prediction_y, dct_out_data_y);
     cuda_dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, 1, dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
     cuda_dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, 1, dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
@@ -153,7 +153,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     cuda_dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, 0, idct_in_data_y, idct_prediction_y, idct_out_data_y);
     cuda_dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, 1, idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
     cuda_dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, 1, idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
-    
+    */
     // dump_image can be used here to check if the prediction is correct.
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
     write_frame(cm);
@@ -198,6 +198,23 @@ struct c63_common* init_c63_enc(int width, int height)
         cm->quanttbl[2][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
     }
 
+    cm->curframe = (struct frame *) malloc(sizeof(struct frame));
+
+    cm->curframe->residuals = (dct_t *) malloc(sizeof(dct_t));
+    cm->curframe->residuals->Ydct = 
+        (int16_t *) malloc(cm->ypw * cm->yph * sizeof(int16_t));
+    cm->curframe->residuals->Udct = 
+        (int16_t *) malloc(cm->upw * cm->uph * sizeof(int16_t));
+    cm->curframe->residuals->Vdct = 
+        (int16_t *) malloc(cm->vpw * cm->vph * sizeof(int16_t));
+
+    cm->curframe->mbs[0] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows * sizeof(struct macroblock));
+    cm->curframe->mbs[1] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+    cm->curframe->mbs[2] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+
     return cm;
 }
 
@@ -216,6 +233,7 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
+//    printf_init();
     // device global arrays
     uint8_t *origY = NULL;
     uint8_t *origU = NULL;
@@ -230,7 +248,9 @@ int main(int argc, char **argv)
     int16_t *residU = NULL;
     int16_t *residV = NULL;
 
-    struct macroblock *mbs[3];
+    struct macroblock *mbsY = NULL;
+    struct macroblock *mbsU = NULL;
+    struct macroblock *mbsV = NULL;
 
     const int keyframe_interval = 100;
 
@@ -292,9 +312,9 @@ int main(int argc, char **argv)
     cm->e_ctx.fp = outfile;
 
     cuda_init_c63_encode(width, height,
-            origY, origU, origV, reconsY, reconsU, reconsV,
-            predY, predU, predV, residY, residU, residV,
-            mbs
+            &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
+            &predY, &predU, &predV, &residY, &residU, &residV,
+            &mbsY, &mbsU, &mbsV
         );
 
     input_file = argv[optind];
@@ -320,14 +340,14 @@ int main(int argc, char **argv)
 
 
 //TODO
-    cuda_dct_malloc(cm->padw[0] * cm->padh[0], &dct_in_data_y,
-            &dct_prediction_y, &dct_out_data_y);
-    cuda_dct_malloc(cm->padw[1] * cm->padh[1], &dct_in_data_uv,
-            &dct_prediction_uv, &dct_out_data_uv);
-    cuda_idct_malloc(cm->padw[0] * cm->padh[0], &idct_in_data_y,
-            &idct_prediction_y, &idct_out_data_y);
-    cuda_idct_malloc(cm->padw[1] * cm->padh[1], &idct_in_data_uv,
-            &idct_prediction_uv, &idct_out_data_uv);
+    //cuda_dct_malloc(cm->padw[0] * cm->padh[0], &dct_in_data_y,
+    //        &dct_prediction_y, &dct_out_data_y);
+    //cuda_dct_malloc(cm->padw[1] * cm->padh[1], &dct_in_data_uv,
+    //        &dct_prediction_uv, &dct_out_data_uv);
+    //cuda_idct_malloc(cm->padw[0] * cm->padh[0], &idct_in_data_y,
+    //        &idct_prediction_y, &idct_out_data_y);
+    //cuda_idct_malloc(cm->padw[1] * cm->padh[1], &idct_in_data_uv,
+    //        &idct_prediction_uv, &idct_out_data_uv);
     ///////////////
     
     int numframes = 0;
@@ -340,17 +360,17 @@ int main(int argc, char **argv)
         cuda_copy_image(width, height, image, origY, origU, origV);
 
         fprintf(stderr, "Encoding frame %d, ", numframes);
-        int keyframe = 0;
+        cm->curframe->keyframe = 0;
         if (numframes % keyframe_interval == 0) {
             fprintf(stderr, "(keyframe) ");
-            keyframe = 1;
+            cm->curframe->keyframe = 1;
         }
 
         //c63_encode_image(cm, image);
-        cuda_c63_encode_image(keyframe, width, height,
+        cuda_c63_encode_image(cm, width, height,
             origY, origU, origV, reconsY, reconsU, reconsV,
             predY, predU, predV, residY, residU, residV,
-            mbs);
+            mbsY, mbsU, mbsV);
 
         free(image->Y);
         free(image->U);
@@ -366,15 +386,15 @@ int main(int argc, char **argv)
 
 
     //TODO....................
-    cuda_dct_free(dct_in_data_y, dct_prediction_y, dct_out_data_y);
-    cuda_dct_free(dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
-    cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
-    cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
+    //cuda_dct_free(dct_in_data_y, dct_prediction_y, dct_out_data_y);
+    //cuda_dct_free(dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
+    //cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
+    //cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
 
     cuda_free_c63_encode(
-            origY, origU, origV, reconsY, reconsU, reconsV,
-            predY, predU, predV, residY, residU, residV,
-            mbs
+            &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
+            &predY, &predU, &predV, &residY, &residU, &residV,
+            &mbsY, &mbsU, &mbsV
         );
 
     fclose(outfile);
@@ -383,5 +403,6 @@ int main(int argc, char **argv)
 
 
     print_time();
+//    printf_end();
     return EXIT_SUCCESS;
 }

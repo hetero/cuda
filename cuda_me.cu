@@ -13,7 +13,7 @@
 
 #include "c63.h"
 #include "cuda_me.h"
-//#include "cuPrintf.cu"
+#include "cuPrintf.cu"
 
 #define REF_WIDTH 48
 #define REF_HEIGHT 48
@@ -161,6 +161,9 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
 
     // write out
     if (threadIdx.x == 0 && threadIdx.y == 0) {
+   /*     if (blockIdx.x == 0 && blockIdx.y == 0) {
+            cuPrintf("Best sadxy = %d\n", best_sadxy);
+        }*/
         mv_out[blockIdx.y * w / 8 + blockIdx.x] = best_sadxy;
     }
 }
@@ -179,9 +182,10 @@ __global__ void k_mb(int *mv_out, struct macroblock *mbs,
             int mv_y = ((sadxy >> 5) & 31) - 16;
             int mv_x = (sadxy & 31) - 16;
             struct macroblock *mb = &mbs[block_nr];
-            
-            //printf("(%d,%d): MV = (%d,%d), sad=%d\n",mb_x,mb_y,mv_x,
-            //        mv_y,sad);
+    /*       if (mb_x == 0 && mb_y == 0) { 
+            cuPrintf("(%d,%d): MV = (%d,%d), sad=%d\n",mb_x,mb_y,mv_x,
+                    mv_y,sad);
+           }*/
             if (sad < 512) {
                 mb->use_mv = 1;
                 mb->mv_x = mv_x;
@@ -211,7 +215,22 @@ void cuda_me_cc(int padw, int padh, uint8_t *orig, uint8_t *ref,
     
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
         (orig, ref, mv_out_dev, padw, padh); 
-     
+    
+    int mv_out_host[352*288/64] = {0};
+    cudaMemcpy(mv_out_host, mv_out_dev, blocks * sizeof(int),
+            cudaMemcpyDeviceToHost);
+
+    for (int mb_y=0; mb_y < mb_rows; ++mb_y)
+    {
+        for (int mb_x=0; mb_x < mb_cols; ++mb_x)
+        {
+            int mv = mv_out_host[mb_y * mb_cols + mb_x];
+            //printf("(%d, %d) -> (%d)\n", mb_x, mb_y,
+            //    mv);
+        }
+    }
+    // END DEBVUG
+
     k_mb<<<1, 1>>> (mv_out_dev, mbs, padw, padh);
 
     cudaFree(mv_out_dev);
@@ -220,19 +239,21 @@ void cuda_me_cc(int padw, int padh, uint8_t *orig, uint8_t *ref,
 void cuda_c63_motion_estimate(int width, int height,
         uint8_t *origY, uint8_t *origU, uint8_t *origV,
         uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
-        struct macroblock *mbs[3]) 
+        struct macroblock *mbsY, struct macroblock *mbsU,
+        struct macroblock *mbsV) 
 {
-//    cudaPrintfInit();
-    cuda_me_cc(width, height, origY, reconsY, mbs[0]);
-    cuda_me_cc(width / 2, height / 2, origU, reconsU, mbs[1]);
-    cuda_me_cc(width / 2, height / 2, origV, reconsV, mbs[2]);
-//    cudaPrintfDisplay();
-//    cudaPrintfEnd();
+    cudaPrintfInit();
+    cuda_me_cc(width, height, origY, reconsY, mbsY);
+    cuda_me_cc(width / 2, height / 2, origU, reconsU, mbsU);
+    cuda_me_cc(width / 2, height / 2, origV, reconsV, mbsV);
+    cudaPrintfDisplay();
+    cudaPrintfEnd();
 }
 
 
-__global__ void cuda_mc_block_8x8(int w, int h, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, struct macroblock *mb) 
+__global__ void cuda_mc_block_8x8(int w, int h, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, struct macroblock *mbs) 
 {
+    struct macroblock *mb = &mbs[mb_y * w / 8 + mb_x];
     if (!mb->use_mv)
         return;
 
@@ -255,19 +276,28 @@ __global__ void cuda_mc_block_8x8(int w, int h, int mb_x, int mb_y, uint8_t *pre
 void cuda_c63_motion_compensate(int width, int height,
         uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
         uint8_t *predY, uint8_t *predU, uint8_t *predV,
-        struct macroblock *mbs[3]) 
+        struct macroblock *mbsY, struct macroblock *mbsU,
+        struct macroblock *mbsV) 
 {
     int mb_cols = width / 8;
     int mb_rows = height / 8;
     int mb_x, mb_y;
+
+    struct macroblock local[352*288/64];
+    cudaMemcpy(local, mbsY, 352*288/64 * sizeof(struct macroblock),
+            cudaMemcpyDeviceToHost);
+
 
     /* Luma */
     for (mb_y=0; mb_y < mb_rows; ++mb_y)
     {
         for (mb_x=0; mb_x < mb_cols; ++mb_x)
         {
+            //struct macroblock *mb = &local[mb_y * mb_cols + mb_x];
+            //printf("(%d, %d) -> (%d, %d, %d)\n", mb_x, mb_y,
+            //    mb->use_mv, mb->mv_x, mb->mv_y);
             cuda_mc_block_8x8<<<1,1>>> (width, height, 
-                    mb_x, mb_y, predY, reconsY, mbs[0]);
+                    mb_x, mb_y, predY, reconsY, mbsY);
         }
     }
 
@@ -277,9 +307,9 @@ void cuda_c63_motion_compensate(int width, int height,
         for (mb_x=0; mb_x < mb_cols/2; ++mb_x)
         {
             cuda_mc_block_8x8<<<1, 1>>> (width / 2, height / 2, 
-                    mb_x, mb_y, predU, reconsU, mbs[1]);
+                    mb_x, mb_y, predU, reconsU, mbsU);
             cuda_mc_block_8x8<<<1, 1>>> (width / 2, height / 2, 
-                    mb_x, mb_y, predV, reconsV, mbs[2]);
+                    mb_x, mb_y, predV, reconsV, mbsV);
         }
     }
 }

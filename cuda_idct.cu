@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include "cuda_common.h"
-#include <stdio.h>
 
 __constant__ static uint8_t quanttbl[2][64] =
 {
@@ -170,48 +169,8 @@ __host__ void cuda_dequantize_idct(uint32_t width, uint32_t height,
         uint8_t id_quant, int16_t *d_in_data, uint8_t *d_prediction,
         uint8_t *d_out_data)
 {
-
-    //DEBUG
-    uint8_t tab[352*288];
-/*    cudaMemcpy(tab, d_out_data, width * height,
-            cudaMemcpyDeviceToHost);
-    int pos = 139 * width + 171;
-    printf("przed idct Y: (171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-*/
     dim3 threadsPerBlock(DCT_TH_X, DCT_TH_Y);
     dim3 blocksPerGrid((width + DCT_TH_X - 1) / DCT_TH_X, height / 8);
     k_dequant_idct_block_8x8<<<blocksPerGrid, threadsPerBlock>>>(
             d_in_data, d_prediction, width, d_out_data, id_quant);
-
-//DEBUG
-    cudaMemcpy(tab, d_out_data, width * height,
-            cudaMemcpyDeviceToHost);
-  //  printf("po idct (Y: 171, 139-141) = %d, %d, %d\n",tab[pos],
-    //        tab[pos+1], tab[pos+2]);
-    printf("\n");
-    for (int y = 0; y <16; y++) {
-       for (int x = 0; x < 16; x++) {
-            printf("%d ", tab[y*width + x]);
-       }
-       printf("\n");
-    }
-    printf("\n");
-
 }
-/*
-__host__ void cuda_idct_malloc(size_t size, int16_t **d_in_data, uint8_t **d_prediction, uint8_t **d_out_data)
-{
-    cudaMalloc(d_in_data, size * sizeof(int16_t));
-    cudaMalloc(d_prediction, size);
-    cudaMalloc(d_out_data, size);
-}
-
-
-__host__ void cuda_idct_free(int16_t *d_in_data, uint8_t *d_prediction, uint8_t *d_out_data)
-{
-    cudaFree(d_in_data);
-    cudaFree(d_prediction);
-    cudaFree(d_out_data);
-}
-*/

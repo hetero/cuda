@@ -69,35 +69,12 @@ void cuda_free_c63_encode(
 void cuda_copy_image(int width, int height, yuv_t *image,
         uint8_t *origY, uint8_t *origU, uint8_t *origV)
 {
-    /*
-    uint8_t t[7] = {0,1,2,3,4,5,6};
-    uint8_t s[7];
-    
-    cudaMalloc(&origY, 7);
-    cudaMemcpy(origY, t, 7, cudaMemcpyHostToDevice);
-    cudaMemcpy(s, origY, 7, cudaMemcpyDeviceToHost);
-    printf("7: (%d, %d, %d, %d, %d, %d %d)\n", 
-            s[0], s[1], s[2], s[3], s[4], s[5], s[6]);
-
-*/
-
     cudaMemcpy(origY, image->Y, width * height, 
             cudaMemcpyHostToDevice);
     cudaMemcpy(origU, image->U, width * height / 4, 
             cudaMemcpyHostToDevice);
     cudaMemcpy(origV, image->V, width * height / 4, 
             cudaMemcpyHostToDevice);
-   /* 
-    uint8_t tab[352*288];
-    int pos = 139 * width + 171;
-    printf("(copy in: 171, 139-141) = %d, %d, %d\n",image->Y[pos],
-            image->Y[pos+1], image->Y[pos+2]);
-
-    cudaMemcpy(tab, origY, width * height, 
-            cudaMemcpyHostToDevice);
-    printf("(copy out: 171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-            */
 }
 
 void cuda_next_frame(int width, int height,
@@ -115,9 +92,6 @@ void cuda_next_frame(int width, int height,
     cudaMemset(predY, 0x80, ypw * yph);
     cudaMemset(predU, 0x80, uvpw * uvph);
     cudaMemset(predV, 0x80, uvpw * uvph);
-/*    cudaMemset(residY, 0x80 ypw * yph * sizeof(int16_t));
-    cudaMemset(residU, 0x80, uvpw * uvph * sizeof(int16_t));
-    cudaMemset(residV, 0x80, uvpw * uvph * sizeof(int16_t));*/
     cudaMemset(mbsY, 0, ypw * yph / 64
             * sizeof(struct macroblock));
     cudaMemset(mbsU, 0, uvpw * uvph / 64 
@@ -138,28 +112,12 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
     int yph = 16 * ((height + 15) / 16);
     int uvpw = 8 * ((width/2 + 7) / 8);
     int uvph = 8 * ((height/2 + 7) / 8);
-/*    
-    //DEBUG
-    uint8_t tab[352*288];
-    cudaMemcpy(tab, reconsY, width * height, 
-            cudaMemcpyDeviceToHost);
-    int pos = 139 * width + 171;
-    printf("przed next Y: (171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-*/
 
     /* Advance to next frame */
     cuda_next_frame(width, height,
             origY, origU, origV, reconsY, reconsU, reconsV,
             predY, predU, predV, residY, residU, residV,
             mbsY, mbsU, mbsV);
-  /*  
-    //DEBUG
-    cudaMemcpy(tab, reconsY, width * height, 
-            cudaMemcpyDeviceToHost);
-    printf("po next (Y: 171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-*/
     
        if (!cm->curframe->keyframe)
     {   
@@ -192,15 +150,7 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
     cudaMemcpy(cm->curframe->mbs[2], mbsV, uvpw * uvph / 64 *
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
-/*
-    //DEBUG
-    cudaMemcpy(tab, origY, width * height, 
-            cudaMemcpyDeviceToHost);
-    printf("(przed write Y: 171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-    //END DEBUG*/
 
     write_frame(cm);
-    
 }
 

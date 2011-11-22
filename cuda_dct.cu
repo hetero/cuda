@@ -1,7 +1,5 @@
 #include <stdint.h>
-#include <stdio.h>
 #include "cuda_common.h"
-//#include "cuPrintf.cu"
 
 __constant__ static uint8_t quanttbl[2][64] =
 {
@@ -168,17 +166,6 @@ __device__ static void cuda_dct_quant_block_8x8(float (&mb)[DCT_BL_SIZE],
 
 __global__ static void k_dct_quant_block_8x8(uint8_t *in_data, uint8_t *prediction, uint32_t width, int16_t *out_data, uint8_t id_quant)
 {
-    /*
-    // DEBUG TODO
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        cuPrintf("dupaaaaaa\n");
-//        cuPrintf("cu%d: (171, 139) = %d\n",
-  //              in_data[139 * width + 171]);
-    }
-    // END DEBUG
-*/
-
-
     __shared__ float mb[DCT_BL_SIZE], mb2[DCT_BL_SIZE];
     int first_col_block = (DCT_TH_X * blockIdx.x);
     if (first_col_block + threadIdx.x < width)
@@ -203,50 +190,15 @@ __host__ void cuda_dct_quantize(uint32_t width, uint32_t height,
         uint8_t id_quant,uint8_t *d_in_data, uint8_t *d_prediction,
         int16_t *d_out_data)
 {
-    /*
-//DEBUG
-    int16_t tab[352*288];
-    cudaMemcpy(tab, d_out_data, width * height * 2,
-            cudaMemcpyDeviceToHost);
-    int pos = 139 * width + 171;
-    printf("przed dct Y: (171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-*/
-
     dim3 threadsPerBlock(DCT_TH_X, DCT_TH_Y);
     dim3 blocksPerGrid((width + DCT_TH_X - 1) / DCT_TH_X, height / 8);
     k_dct_quant_block_8x8<<<blocksPerGrid, threadsPerBlock>>>(
             d_in_data, d_prediction, width, d_out_data, id_quant);
-/*//DEBUG
-    cudaMemcpy(tab, d_out_data, width * height * 2,
-            cudaMemcpyDeviceToHost);
-    printf("po dct (Y: 171, 139-141) = %d, %d, %d\n",tab[pos],
-            tab[pos+1], tab[pos+2]);
-*/
-    
 }
-/*
-__host__ void cuda_dct_malloc(size_t size, uint8_t **d_in_data, uint8_t **d_prediction, int16_t **d_out_data)
-{
-    cudaMalloc(d_in_data, size);
-    cudaMalloc(d_prediction, size);
-    cudaMalloc(d_out_data, size * sizeof(int16_t));
-}
-
 
 __host__ void cuda_dct_free(uint8_t *d_in_data, uint8_t *d_prediction, int16_t *d_out_data)
 {
     cudaFree(d_in_data);
     cudaFree(d_prediction);
     cudaFree(d_out_data);
-}*/
-/*
-void printf_init() {
-    cudaPrintfInit();
 }
-
-void printf_end() {
-    cudaPrintfDisplay();
-    cudaPrintfEnd();
-}
-*/

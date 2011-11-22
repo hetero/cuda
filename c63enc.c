@@ -8,12 +8,22 @@
 #include <assert.h>
 #include <limits.h>
 #include <time.h>
+#include <pthread.h>
+#include <list>
 
 #include "c63.h"
 #include "tables.h"
 #include "cuda_me.h"
 #include "cuda_dct.h"
 #include "cuda_idct.h"
+
+using std::list;
+
+// list for write requests
+static list<c63_common*> write_list;
+static list<pthread_t> th_id_list;
+static struct entropy_ctx write_entropy;
+pthread_mutex_t mutex;
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -68,6 +78,17 @@ void print_time() {
         printf("Measured time: %f\n", total_time);
 }
 
+void *thread_write_frame(void *a)
+{
+    pthread_mutex_lock(&mutex);
+    write_frame(write_list.front());
+    // small hack to remember entropy_ctx
+    write_entropy = write_list.front()->e_ctx;
+    destroy_cm_write(write_list.front());
+    write_list.pop_front();
+    pthread_mutex_unlock(&mutex);
+    pthread_exit(NULL);
+}
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -137,13 +158,13 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        start();
-        cuda_c63_motion_estimate(cm);
-        stop();
+        //start();
+        //cuda_c63_motion_estimate(cm);
+        //stop();
         //c63_motion_estimate(cm);
 
         /* Motion Compensation */
-        c63_motion_compensate(cm);
+        //c63_motion_compensate(cm);
     }
 /*
     dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
@@ -166,7 +187,13 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     
     // dump_image can be used here to check if the prediction is correct.
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
-    write_frame(cm);
+
+    
+    write_list.push_back(cm_copy_write(cm, &write_entropy));
+    pthread_t t;
+    pthread_create(&t, NULL, thread_write_frame, NULL);
+    th_id_list.push_back(t);
+    //write_frame(cm);
 
     ++cm->framenum;
     ++cm->frames_since_keyframe;
@@ -226,6 +253,7 @@ static void print_help()
 
 int main(int argc, char **argv)
 {
+    pthread_mutex_init (&mutex, NULL);
     int c;
     yuv_t *image;
 
@@ -285,6 +313,7 @@ int main(int argc, char **argv)
 
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
+    write_entropy = cm->e_ctx;
 
 
     /* Calculate the padded width and height */
@@ -349,6 +378,12 @@ int main(int argc, char **argv)
     cuda_dct_free(dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
     cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
     cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
+
+    while (!th_id_list.empty())
+    {
+        pthread_join(th_id_list.front(), NULL);
+        th_id_list.pop_front();
+    }
 
     fclose(outfile);
     fclose(infile);

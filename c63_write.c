@@ -156,13 +156,10 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
         int32_t cc, int channel)
 {
     uint32_t i, j;
-
     /* Write motion vector */
     struct macroblock *mb = &cm->curframe->mbs[channel][voffset/8 * cm->padw[channel]/8 + uoffset/8];
-
     /* Use inter pred? */
     put_bits(&cm->e_ctx, mb->use_mv, 1);
-
     if (mb->use_mv)
     {
         int reuse_prev_mv = 0;
@@ -197,7 +194,6 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
     }
 
     /* Write residuals */
-
     /* Residuals stored linear in memory */
     int16_t *block = &in_data[uoffset * 8 + voffset * width];
     int32_t num_ac = 0;

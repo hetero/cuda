@@ -137,7 +137,7 @@ __global__ static void k_dequant_idct_block_8x8(
     cuda_dequant_idct_block_8x8(mb, mb2, id_quant, col_mb, block_pos);
     // mb has result
     int idxPredOut = 8 * width * blockIdx.y + DCT_TH_X * blockIdx.x + width * threadIdx.y + threadIdx.x;
-    int tmp = (int)mb[block_pos] - (int)prediction[idxPredOut];
+    int tmp = (int)mb[block_pos] + (int)prediction[idxPredOut];
     if (tmp < 0)
         tmp = 0;
     else if (tmp > 255)

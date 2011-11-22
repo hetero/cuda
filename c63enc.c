@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <limits.h>
 #include <time.h>
+#include <pthread.h>
+#include <list>
 
 #include "c63.h"
 #include "tables.h"
@@ -15,6 +17,14 @@
 #include "cuda_dct.h"
 #include "cuda_idct.h"
 #include "cuda_encode.h"
+
+using std::list;
+
+// list for write requests
+static list<c63_common*> write_list;
+static list<pthread_t> th_id_list;
+static struct entropy_ctx write_entropy;
+pthread_mutex_t mutex;
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -48,6 +58,17 @@ void print_time() {
         printf("Measured time: %f\n", total_time);
 }
 
+void *thread_write_frame(void *a)
+{
+    pthread_mutex_lock(&mutex);
+    write_frame(write_list.front());
+    // small hack to remember entropy_ctx
+    write_entropy = write_list.front()->e_ctx;
+    destroy_cm_write(write_list.front());
+    write_list.pop_front();
+    pthread_mutex_unlock(&mutex);
+    pthread_exit(NULL);
+}
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -126,10 +147,15 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
     dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
     dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
-   
     // dump_image can be used here to check if the prediction is correct.
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
-    write_frame(cm);
+
+    
+    write_list.push_back(cm_copy_write(cm, &write_entropy));
+    pthread_t t;
+    pthread_create(&t, NULL, thread_write_frame, NULL);
+    th_id_list.push_back(t);
+    //write_frame(cm);
 
     ++cm->framenum;
     ++cm->frames_since_keyframe;
@@ -226,6 +252,8 @@ int main(int argc, char **argv)
 
     const int keyframe_interval = 100;
 
+    pthread_mutex_init (&mutex, NULL);
+
     int c;
     yuv_t *image;
 
@@ -282,6 +310,7 @@ int main(int argc, char **argv)
 
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
+    write_entropy = cm->e_ctx;
 
     cuda_init_c63_encode(width, height,
             &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
@@ -347,6 +376,12 @@ int main(int argc, char **argv)
             &predY, &predU, &predV, &residY, &residU, &residV,
             &mbsY, &mbsU, &mbsV
         );
+
+    while (!th_id_list.empty())
+    {
+        pthread_join(th_id_list.front(), NULL);
+        th_id_list.pop_front();
+    }
 
     fclose(outfile);
     fclose(infile);

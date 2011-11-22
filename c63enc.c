@@ -133,10 +133,7 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        start();
-        cuda_c63_motion_estimate(cm);
-        stop();
-        //c63_motion_estimate(cm);
+        c63_motion_estimate(cm);
         /* Motion Compensation */
         c63_motion_compensate(cm);
     }
@@ -220,20 +217,22 @@ static void print_help()
 int main(int argc, char **argv)
 {
     // device global arrays
-    uint8_t *origY;
-    uint8_t *origU;
-    uint8_t *origV;
-    uint8_t *reconsY;
-    uint8_t *reconsU;
-    uint8_t *reconsV;
-    uint8_t *predY;
-    uint8_t *predU;
-    uint8_t *predV;
-    int16_t *residY;
-    int16_t *residU;
-    int16_t *residV;
+    uint8_t *origY = NULL;
+    uint8_t *origU = NULL;
+    uint8_t *origV = NULL;
+    uint8_t *reconsY = NULL;
+    uint8_t *reconsU = NULL;
+    uint8_t *reconsV = NULL;
+    uint8_t *predY = NULL;
+    uint8_t *predU = NULL;
+    uint8_t *predV = NULL;
+    int16_t *residY = NULL;
+    int16_t *residU = NULL;
+    int16_t *residV = NULL;
 
     struct macroblock *mbs[3];
+
+    const int keyframe_interval = 100;
 
     int c;
     yuv_t *image;
@@ -338,11 +337,17 @@ int main(int argc, char **argv)
         if (!image) {
             break;
         }
-        cuda_copy_image(width, height, origY, origU, origV);
+        cuda_copy_image(width, height, image, origY, origU, origV);
 
         fprintf(stderr, "Encoding frame %d, ", numframes);
+        int keyframe = 0;
+        if (numframes % keyframe_interval == 0) {
+            fprintf(stderr, "(keyframe) ");
+            keyframe = 1;
+        }
+
         //c63_encode_image(cm, image);
-        cuda_c63_encode_image(width, height,
+        cuda_c63_encode_image(keyframe, width, height,
             origY, origU, origV, reconsY, reconsU, reconsV,
             predY, predU, predV, residY, residU, residV,
             mbs);
@@ -366,7 +371,7 @@ int main(int argc, char **argv)
     cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
     cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
 
-    cuda_free_c63_encode(width, height,
+    cuda_free_c63_encode(
             origY, origU, origV, reconsY, reconsU, reconsV,
             predY, predU, predV, residY, residU, residV,
             mbs

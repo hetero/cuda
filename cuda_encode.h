@@ -24,8 +24,8 @@ void cuda_copy_image(int width, int height, yuv_t *image,
     );
 
 
-void cuda_c63_encode_image(int width, int height,
-        uint8_t *origY, uint8_t *origU, uint8_t *origV
+void cuda_c63_encode_image(int keyframe, int width, int height,
+        uint8_t *origY, uint8_t *origU, uint8_t *origV,
         uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
         uint8_t *predY, uint8_t *predU, uint8_t *predV,
         int16_t *residY, int16_t *residU, int16_t *residV,

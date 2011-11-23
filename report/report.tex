@@ -17,10 +17,103 @@
 
 \begin{document}
 \maketitle
+\tableofcontents
 
 \section{Introduction}
+In order to achieve the best efficiency of video encoding we made some optimizations of the following parts of the code:
+\begin{itemize}
+  \item Motion estimation,
+  \item Motion compensation,
+  \item DCT and quantize,
+  \item VLC,
+  \item Memory transfers.
+\end{itemize}
+Most of optimizations base on doing calculations on many \emph{CUDA} cores
+in parallel.
 
-\section{Motion search}
+\section{Motion estimation}
+
+\subsection{Algorithm}
+The first and the biggest bottleneck of the encoder is motion estimation.
+(TODO: WYKRES Z PROCENTAMI)
+There are plenty of algorithms faster than \emph{full search} to find the
+motion vector using single-threaded architecture.
+However, not all of them are well designed to use the potential of \emph{CUDA}
+architecture.
+Therefore we decided to optimize the \emph{full search} algorithm, since
+it is very ``regular'' --- calculations for each non-border block looks exactly
+the same (unlike in i.eg. \emph{diamond search}).
+
+\subsection{Division of tasks}
+We can classify all the tasks among the 3 levels:
+\begin{enumerate}
+  \item The motion vector search is conducted for each $8 \times 8$ block 
+  independently.
+  For \texttt{tractor.yuv} movie, there are 32\,400 blocks to process.
+  \item For each block, the task is to calculate $32 \cdot 32$ \emph{SAD} 
+  functions and find the minimum of them.
+  \item The calculating of a \emph{SAD} functions base on calculating 
+  64 absolute differences between pixels values and summing up all the result.
+\end{enumerate}
+
+Ad. 3. Since the calculating of \emph{SAD} is a sequential task, we decided, that
+each \emph{SAD} is calculated by one thread. (TODO MOZNA SIE POKUSIC O SCHEMAT)
+
+Ad. 2. Each of $32 \cdot 32$ \emph{SAD} functions are calculated between the
+particular block of original frame, and different blocks of reference frame.
+Therefore it's a good task for one block of threads.
+Unfortunately, we cannot use $32 \cdot 32$ threads on one block.
+On \emph{Clinton} we are limited by 1024 threads on one multiprocessor and
+8 thread blocks on one multiprocessor.
+Therefore, to achieve the maximum occupancy of \emph{GPU} cores, we use 128
+threads on a block, which leads to 1024 threads on a multiprocessor.
+Thus, each of 128 threads must calculate 8 \emph{SAD} functions and find 
+minimal value of them.
+After that we can find the minimal \emph{SAD} among these 128 values using
+\texttt{atomicMin()} function on a \emph{shared memory}.
+
+Ad. 1. Each $8 \times 8$ block of frame is processed by a separate thread
+block.
+
+\subsection{Using of \emph{shared memory}}
+Each block of threads is calculating \emph{SAD} functions between one 
+$8 \times 8$ block of original frame and $32 \times 32$ blocks of reference
+frame. In order to do this, it needs $8 \times 8$ pixels from original
+frame and $39 \times 39$ pixels from reference frame.
+The kernel can read this data once from a global memory, store in shared
+memory (which is much faster) and then use only shared memory for calculations.
+
+\subsubsection{Transferring data from global to shared memory}
+(TODO: POMIARY CZASU TRANSFEROW WZGLEDEM OBLICZEN)
+Since the transfer of data from global to shared memory takes noticable amount
+of time, it is important to do it efficiently in parallel using \emph{CUDA}
+threads. 
+
+Since we have 128 threads (16 rows of 8 threads each), we can read the
+original frame block of 64 pixels in one command (using 64 threads).
+However to provide parallel processing of this command we must avoid the bank
+conflicts on a shared memory. In order to to this we figured out the pattern
+of assigning the pixels to threads which avoids the bank confilcts in both
+meanings (1.3 and 2.1 compute capabilities).
+TODO OOOOOOOOOOOOOOOOOO: RYSUNEK
+
+Besides the original frame block, each thread block needs to read 
+$39 \cdot 39 = 1521$ pixels of reference data. We divided this area into
+4 subareas shown in the picture. 
+TODOOOOOOOOOOOOO RYSUNEK
+The A area is being read in 8 commands by each of 128 threads.
+The B (RIGHT) area is being read in 4 commands by each of 64 threads.
+The C (BOTTOM) area is being read in 2 commands by each of 128 threads.
+The D area is being read in 1 command by each of 64 threads.
+
+In order to avoid the bank conflicts, we set the width of the array to 48,
+and assigned the threads to the pixels as shown in the picture TODOOOOOO RYS.
+
+\subsubsection{Calculating the \emph{SAD}}
+Since we have 128 threads and 1024 \emph{SAD} functions to calculate, each
+thread must calculate 8 \emph{SAD}s. In this part we also figured out the
+mapping between pixels and threads, which avoids the bank conflicts.
+TODOOOOO RYSUNEK.
 
 \section{DCT/IDCT and quantization/dequantization}
 Port of code which was computing DCT and quantization was straight forward in the beginning. Of course first try of porting code to CUDA resulted in slower runtime, because of a big number of useless uncoalesced global memory accessing. There is individual kernel per Y/U/V frame, so in general there are run 3 kernels per one frame of video. We started to optimize it architecture-specific as below.
@@ -34,7 +127,49 @@ For computation we are using shared memory. We tried to avoid as many bank confl
 \section{VLC}
 In the beginning VLC was consuming a very little amount of time but after all other optimizations it was taking about 10\% of runtime. In the beginning we were trying to port whole VLC to CUDA but after that we understood its code very well we did not have any idea to make it parallel because of its sequential nature. We decided in the end use CPU thread for writing output, because it can be done during computing CUDA kernel on the device. Thanks to this optimization writing code is now running 3 times faster.
 \section{Memory transfers}
+Since we were porting the code of \emph{ME} and \emph{DCT} partially from 
+\emph{CPU} to \emph{GPU}, after optimizations of these parts, the transfers
+of data between \emph{host} and \emph{device} became signifact.
+
+TODO: WYKRESIK PAWELKA :*
+
+Each frame of data was being encoded in the following way:
+\begin{itemize}
+  \item reading of image by \emph{CPU},
+  \item transfer of original and reference frame from \emph{host} to 
+  \emph{device},
+  \item motion estimation on \emph{GPU},
+  \item transfer of calculated motion vectors to \emph{host},
+  \item motion compesation on \emph{CPU},
+  \item transfer of original and predicted frame to \emph{device},
+  \item DCT and quantization on \emph{GPU},
+  \item transfer of calculated residuals to \emph{host},
+  \item transfer of residuals and prediction to \emph{device},
+  \item quantization on \emph{GPU},
+  \item transfer of reference frame to \emph{host},
+  \item VLC and writing image on \emph{CPU}.
+\end{itemize}
+TODO: PAWCIO, ZROBISZ RYSUNECZEK DO TEGO? :)
+
+After porting the motion compensation code to \emph{GPU}, the only things
+which we have to do on \emph{CPU} were:
+\begin{itemize}
+  \item reading of image,
+  \item VLC,
+  \item writing the output.
+\end{itemize}
+Therefore we reduced the data transfers between the parts of encoding:
+\begin{itemize}
+  \item reading of frame on \emph{CPU},
+  \item transfer of frame from \emph{host} to \emph{device},
+  \item motion estimation and motion compensation on \emph{GPU},
+  \item DCT, quantization, dequantization and IDCT on \emph{GPU},
+  \item transfer of residuals and motion vectors to \emph{host},
+  \item VLC and writing on \emph{CPU} being processed in parallel with
+  encoding of the next frame.
+\end{itemize}
 
 \section{Summary}
+TODO: PAWEL :P
 
 \end{document}

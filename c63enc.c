@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <limits.h>
 #include <time.h>
+#include <pthread.h>
+#include <list>
 
 #include "c63.h"
 #include "tables.h"
@@ -15,6 +17,13 @@
 #include "cuda_dct.h"
 #include "cuda_idct.h"
 #include "cuda_encode.h"
+
+using std::list;
+
+// list for write requests
+list<pthread_t> th_id_list;
+struct entropy_ctx write_entropy;
+pthread_mutex_t mutex;
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -24,21 +33,6 @@ static int limit_numframes = 0;
 
 static uint32_t width;
 static uint32_t height;
-
-// DCT device pointers
-static uint8_t *dct_in_data_y;
-static uint8_t *dct_prediction_y;
-static int16_t *dct_out_data_y;
-static uint8_t *dct_in_data_uv;
-static uint8_t *dct_prediction_uv;
-static int16_t *dct_out_data_uv;
-
-static int16_t *idct_in_data_y;
-static uint8_t *idct_prediction_y;
-static uint8_t *idct_out_data_y;
-static int16_t *idct_in_data_uv;
-static uint8_t *idct_prediction_uv;
-static uint8_t *idct_out_data_uv;
 
 /* getopt */
 extern int optind;
@@ -62,7 +56,6 @@ void stop() {
 void print_time() {
         printf("Measured time: %f\n", total_time);
 }
-
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -108,9 +101,6 @@ static yuv_t* read_yuv(FILE *file)
     return image;
 }
 
-
-
-
 static void c63_encode_image(struct c63_common *cm, yuv_t *image)
 {
     /* Advance to next frame */
@@ -133,32 +123,28 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
     if (!cm->curframe->keyframe)
     {
         /* Motion Estimation */
-        start();
-        cuda_c63_motion_estimate(cm);
-        stop();
-        //c63_motion_estimate(cm);
+        c63_motion_estimate(cm);
         /* Motion Compensation */
         c63_motion_compensate(cm);
     }
-   /* 
+    
+    
     dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
     dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
     dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
     dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
     dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
     dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
-   */
-    
-    cuda_dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, 0, dct_in_data_y, dct_prediction_y, dct_out_data_y);
-    cuda_dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, 1, dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
-    cuda_dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, 1, dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
-
-    cuda_dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, 0, idct_in_data_y, idct_prediction_y, idct_out_data_y);
-    cuda_dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, 1, idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
-    cuda_dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, 1, idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
+  
     
     // dump_image can be used here to check if the prediction is correct.
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
+
+   /* 
+    write_list.push_back(cm_copy_write(cm, &write_entropy));
+    pthread_t t;
+    pthread_create(&t, NULL, thread_write_frame, NULL);
+    th_id_list.push_back(t);*/
     write_frame(cm);
 
     ++cm->framenum;
@@ -204,6 +190,19 @@ struct c63_common* init_c63_enc(int width, int height)
     return cm;
 }
 
+
+void cuda_fake_cm_free(struct c63_common *cm) {
+    free(cm->curframe->residuals->Ydct); 
+    free(cm->curframe->residuals->Udct);
+    free(cm->curframe->residuals->Vdct);
+    free(cm->curframe->residuals);
+
+    free(cm->curframe->mbs[0]);
+    free(cm->curframe->mbs[1]);
+    free(cm->curframe->mbs[2]);
+    free(cm->curframe);
+}
+
 static void print_help()
 {
     fprintf(stderr, "Usage: ./c63enc [options] input_file\n");
@@ -220,20 +219,26 @@ static void print_help()
 int main(int argc, char **argv)
 {
     // device global arrays
-    uint8_t *origY;
-    uint8_t *origU;
-    uint8_t *origV;
-    uint8_t *reconsY;
-    uint8_t *reconsU;
-    uint8_t *reconsV;
-    uint8_t *predY;
-    uint8_t *predU;
-    uint8_t *predV;
-    int16_t *residY;
-    int16_t *residU;
-    int16_t *residV;
+    uint8_t *origY = NULL;
+    uint8_t *origU = NULL;
+    uint8_t *origV = NULL;
+    uint8_t *reconsY = NULL;
+    uint8_t *reconsU = NULL;
+    uint8_t *reconsV = NULL;
+    uint8_t *predY = NULL;
+    uint8_t *predU = NULL;
+    uint8_t *predV = NULL;
+    int16_t *residY = NULL;
+    int16_t *residU = NULL;
+    int16_t *residV = NULL;
 
-    struct macroblock *mbs[3];
+    struct macroblock *mbsY = NULL;
+    struct macroblock *mbsU = NULL;
+    struct macroblock *mbsV = NULL;
+
+    const int keyframe_interval = 100;
+
+    //pthread_mutex_init (&mutex, NULL);
 
     int c;
     yuv_t *image;
@@ -288,14 +293,16 @@ int main(int argc, char **argv)
 
 //    predfile = fopen("/tmp/pred.yuv", "wb");
 
-
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
+    write_entropy = cm->e_ctx;
+
+    cuda_fake_cm_init(cm);
 
     cuda_init_c63_encode(width, height,
-            origY, origU, origV, reconsY, reconsU, reconsV,
-            predY, predU, predV, residY, residU, residV,
-            mbs
+            &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
+            &predY, &predU, &predV, &residY, &residU, &residV,
+            &mbsY, &mbsU, &mbsV
         );
 
     input_file = argv[optind];
@@ -315,22 +322,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-
     /* Encode input frames */
-
-
-
-//TODO
-    cuda_dct_malloc(cm->padw[0] * cm->padh[0], &dct_in_data_y,
-            &dct_prediction_y, &dct_out_data_y);
-    cuda_dct_malloc(cm->padw[1] * cm->padh[1], &dct_in_data_uv,
-            &dct_prediction_uv, &dct_out_data_uv);
-    cuda_idct_malloc(cm->padw[0] * cm->padh[0], &idct_in_data_y,
-            &idct_prediction_y, &idct_out_data_y);
-    cuda_idct_malloc(cm->padw[1] * cm->padh[1], &idct_in_data_uv,
-            &idct_prediction_uv, &idct_out_data_uv);
-    ///////////////
-    
     int numframes = 0;
     while(!feof(infile))
     {
@@ -338,14 +330,20 @@ int main(int argc, char **argv)
         if (!image) {
             break;
         }
-        cuda_copy_image(width, height, origY, origU, origV);
+        cuda_copy_image(width, height, image, origY, origU, origV);
 
         fprintf(stderr, "Encoding frame %d, ", numframes);
+        cm->curframe->keyframe = 0;
+        if (numframes % keyframe_interval == 0) {
+            fprintf(stderr, "(keyframe) ");
+            cm->curframe->keyframe = 1;
+        }
+
         //c63_encode_image(cm, image);
-        cuda_c63_encode_image(width, height,
+        cuda_c63_encode_image(cm, width, height,
             origY, origU, origV, reconsY, reconsU, reconsV,
             predY, predU, predV, residY, residU, residV,
-            mbs);
+            mbsY, mbsU, mbsV);
 
         free(image->Y);
         free(image->U);
@@ -353,30 +351,22 @@ int main(int argc, char **argv)
         free(image);
 
         fprintf(stderr, "Done!\n");
-
         ++numframes;
         if (limit_numframes && numframes >= limit_numframes)
             break;
     }
 
-
-    //TODO....................
-    cuda_dct_free(dct_in_data_y, dct_prediction_y, dct_out_data_y);
-    cuda_dct_free(dct_in_data_uv, dct_prediction_uv, dct_out_data_uv);
-    cuda_idct_free(idct_in_data_y, idct_prediction_y, idct_out_data_y);
-    cuda_idct_free(idct_in_data_uv, idct_prediction_uv, idct_out_data_uv);
-
-    cuda_free_c63_encode(width, height,
-            origY, origU, origV, reconsY, reconsU, reconsV,
-            predY, predU, predV, residY, residU, residV,
-            mbs
-        );
-
+    while (!th_id_list.empty())
+    {
+        pthread_join(th_id_list.front(), NULL);
+        th_id_list.pop_front();
+    }
+    
     fclose(outfile);
     fclose(infile);
 //    fclose(predfile);
 
-
+    cuda_fake_cm_free(cm);
     print_time();
     return EXIT_SUCCESS;
 }

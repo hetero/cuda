@@ -14,8 +14,8 @@ INCLUDES = -I$(CUDA_INSTALL_PATH)/include -I$(CUDA_SDK_PATH)/C/common/inc
 
 COMMONFLAGS += $(INCLUDES)
 NVCCFLAGS += $(COMMONFLAGS) -O3 -use_fast_math --ptxas-options=-v -arch sm_13 #--maxrregcount 16# -g -G
-CXXFLAGS += $(COMMONFLAGS)
-CFLAGS += $(COMMONFLAGS) -O3 -Wall # -g
+CXXFLAGS += $(COMMONFLAGS) -O3 -Wall -pthread
+CFLAGS += $(COMMONFLAGS) -O3 -Wall -pthread # -g
 
 OBJS_ENC = c63enc.o tables.o io.o c63_write.o common.o me.o dsp.o cuda_me.o cuda_dct.o cuda_idct.o cuda_encode.o
 OBJS_DEC = c63dec.o tables.o io.o common.o me.o dsp.o

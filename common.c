@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "c63.h"
 #include "tables.h"
@@ -150,3 +151,84 @@ void dump_image(yuv_t *image, int w, int h, FILE *fp)
     fwrite(image->V, 1, w*h/4, fp);
 }
 
+struct dct *dct_copy_write(struct c63_common *cm)
+{
+    struct dct *ret = (struct dct *)malloc(sizeof(struct dct));
+    ret->Ydct = (int16_t*)malloc(cm->ypw * cm->yph * sizeof(int16_t));
+    ret->Udct = (int16_t*)malloc(cm->upw * cm->uph * sizeof(int16_t));
+    ret->Vdct = (int16_t*)malloc(cm->vpw * cm->vph * sizeof(int16_t));
+    memcpy(ret->Ydct, cm->curframe->residuals->Ydct, cm->ypw * cm->yph * sizeof(int16_t));
+    memcpy(ret->Udct, cm->curframe->residuals->Udct, cm->upw * cm->uph * sizeof(int16_t));
+    memcpy(ret->Vdct, cm->curframe->residuals->Vdct, cm->vpw * cm->vph * sizeof(int16_t));
+    return ret;
+}
+
+struct c63_common *cm_copy_write(struct c63_common *cm, struct entropy_ctx *entropy)
+{
+    struct c63_common *ret = (struct c63_common *)malloc(sizeof(struct c63_common));
+    ret->ypw = cm->ypw;
+    ret->yph = cm->yph;
+    ret->upw = cm->upw;
+    ret->uph = cm->uph;
+    ret->vpw = cm->vpw;
+    ret->vph = cm->vph;
+    ret->padw[0] = cm->padw[0];
+    ret->padw[1] = cm->padw[1];
+    ret->padw[2] = cm->padw[2];
+    ret->width = cm->width;
+    ret->height = cm->height;
+    memcpy(ret->quanttbl, cm->quanttbl, 3 * 64 * sizeof(uint8_t));
+    ret->curframe = (struct frame *)malloc(sizeof(struct frame));
+    ret->curframe->keyframe = cm->curframe->keyframe;
+    ret->curframe->residuals = dct_copy_write(cm);
+    ret->curframe->mbs[0]
+        = (struct macroblock *)malloc(cm->ypw * cm->yph * sizeof(struct macroblock));
+    ret->curframe->mbs[1]
+        = (struct macroblock *)malloc(cm->upw * cm->uph * sizeof(struct macroblock));
+    ret->curframe->mbs[2]
+        = (struct macroblock *)malloc(cm->vpw * cm->vph * sizeof(struct macroblock));
+    memcpy(ret->curframe->mbs[0], cm->curframe->mbs[0],
+            cm->ypw * cm->yph * sizeof(struct macroblock));
+    memcpy(ret->curframe->mbs[1], cm->curframe->mbs[1],
+            cm->upw * cm->uph * sizeof(struct macroblock));
+    memcpy(ret->curframe->mbs[2], cm->curframe->mbs[2],
+            cm->vpw * cm->vph * sizeof(struct macroblock));
+    ret->e_ctx = *entropy;
+    return ret;
+}
+
+void destroy_frame_write(struct frame *f)
+{
+    free(f->residuals->Ydct);
+    free(f->residuals->Udct);
+    free(f->residuals->Vdct);
+    free(f->residuals);
+    free(f->mbs[0]);
+    free(f->mbs[1]);
+    free(f->mbs[2]);
+    free(f);
+}
+
+void destroy_cm_write(struct c63_common *cm)
+{
+    destroy_frame_write(cm->curframe);
+}
+
+void cuda_fake_cm_init(struct c63_common *cm) {
+    cm->curframe = (struct frame *) malloc(sizeof(struct frame));
+
+    cm->curframe->residuals = (dct_t *) malloc(sizeof(dct_t));
+    cm->curframe->residuals->Ydct = 
+        (int16_t *) malloc(cm->ypw * cm->yph * sizeof(int16_t));
+    cm->curframe->residuals->Udct = 
+        (int16_t *) malloc(cm->upw * cm->uph * sizeof(int16_t));
+    cm->curframe->residuals->Vdct = 
+        (int16_t *) malloc(cm->vpw * cm->vph * sizeof(int16_t));
+
+    cm->curframe->mbs[0] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows * sizeof(struct macroblock));
+    cm->curframe->mbs[1] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+    cm->curframe->mbs[2] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+}

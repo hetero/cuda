@@ -125,4 +125,7 @@ void c63_motion_compensate(struct c63_common *cm);
 
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 
+struct c63_common *cm_copy_write(struct c63_common *cm, struct entropy_ctx *entropy);
+void destroy_cm_write(struct c63_common *cm);
+void cuda_fake_cm_init(struct c63_common *cm);
 #endif /* mjpeg_encoder.h */

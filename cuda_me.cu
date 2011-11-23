@@ -19,6 +19,9 @@
 #define REF_HEIGHT 48
 #define ORIG_SIZE 8
 
+#define rightEnd (right+8)
+#define bottomEnd (bottom+8)
+
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int *result)
 {
@@ -88,10 +91,6 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
         right = w - 8;
     if (bottom > (h - 8))
         bottom = h - 8;
-
-#define rightEnd (right+8)
-#define bottomEnd (bottom+8)
-
 
     //copying REF
 
@@ -166,73 +165,20 @@ __global__ void k_me_block_8x8(uint8_t *orig, uint8_t *ref, int *mv_out, int w, 
     }
 }
 
-void cuda_me_cc(struct c63_common *cm, int cc)
+__global__ void k_mb(int *mv_out, struct macroblock *mbs,
+        int padw, int padh)
 {
-    /* Compare this frame with previous reconstructed frame */
-    int mb_x, mb_y;
-
-    uint8_t *orig, *ref;
-    int *mv_out_dev, *mv_out_host;
-    int frame_size = cm->padw[cc] * cm->padh[cc];
-    int mb_cols = cm->padw[cc] / 8;
-    int mb_rows = cm->padh[cc] / 8;
-    int blocks = mb_cols * mb_rows;
-    cudaMalloc(&orig, frame_size * sizeof(uint8_t));
-    cudaMalloc(&ref, frame_size * sizeof(uint8_t));
-    cudaMalloc(&mv_out_dev, blocks * sizeof(int));
-
-    mv_out_host = (int *) malloc(blocks * sizeof(int));
-
-    // Copy vectors from host memory to device memory
-    uint8_t *cur, *recons;
-    switch (cc) {
-        case 0:
-            cur = cm->curframe->orig->Y;
-            recons = cm->refframe->recons->Y;
-            break;
-        case 1:
-            cur = cm->curframe->orig->U;
-            recons = cm->refframe->recons->U;
-            break;
-        case 2:
-            cur = cm->curframe->orig->V;
-            recons = cm->refframe->recons->V;
-    }
-    
-    cudaMemcpy(orig, cur, frame_size, 
-            cudaMemcpyHostToDevice);
-    cudaMemcpy(ref, recons, frame_size, 
-            cudaMemcpyHostToDevice);
-    
-    // Invoke kernel
-
-    dim3 threadsPerBlock(8, 16);
-    dim3 numBlocks(mb_cols, mb_rows);
-    
-    k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
-        (orig, ref, mv_out_dev, cm->padw[cc], cm->padh[cc]); 
-     
-    // Copy result from device memory to host memory
-    cudaMemcpy(mv_out_host, mv_out_dev, blocks * sizeof(int), 
-            cudaMemcpyDeviceToHost);
-
-    // Free device memory
-    cudaFree(orig);
-    cudaFree(ref);
-    cudaFree(mv_out_dev);
-
-    for (mb_y = 0; mb_y < mb_rows; ++mb_y) {
-        for (mb_x = 0; mb_x < mb_cols; ++mb_x) {
+    int mb_cols = padw / 8;
+    int mb_rows = padh / 8;
+    for (int mb_y = 0; mb_y < mb_rows; ++mb_y) {
+        for (int mb_x = 0; mb_x < mb_cols; ++mb_x) {
             int block_nr = mb_y * mb_cols + mb_x;
             // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
-            int sadxy = mv_out_host[block_nr];
+            int sadxy = mv_out[block_nr];
             int sad = sadxy >> 10;
             int mv_y = ((sadxy >> 5) & 31) - 16;
             int mv_x = (sadxy & 31) - 16;
-            struct macroblock *mb = &cm->curframe->mbs[cc][block_nr];
-            
-            //printf("(%d,%d): MV = (%d,%d), sad=%d\n",mb_x,mb_y,mv_x,
-            //        mv_y,sad);
+            struct macroblock *mb = &mbs[block_nr];
             if (sad < 512) {
                 mb->use_mv = 1;
                 mb->mv_x = mv_x;
@@ -245,11 +191,75 @@ void cuda_me_cc(struct c63_common *cm, int cc)
     }
 }
 
-void cuda_c63_motion_estimate(struct c63_common *cm) {
-//    cudaPrintfInit();
-    for (int cc = 0; cc <= 2; cc++) {
-        cuda_me_cc(cm, cc);
-    }
-//    cudaPrintfDisplay();
-//    cudaPrintfEnd();
+void cuda_me_cc(int padw, int padh, uint8_t *orig, uint8_t *ref,
+        struct macroblock *mbs)
+{
+    /* Compare this frame with previous reconstructed frame */
+    int *mv_out_dev;
+    int mb_cols = padw / 8;
+    int mb_rows = padh / 8;
+    int blocks = mb_cols * mb_rows;
+    cudaMalloc(&mv_out_dev, blocks * sizeof(int));
+
+    // Invoke kernel
+
+    dim3 threadsPerBlock(8, 16);
+    dim3 numBlocks(mb_cols, mb_rows);
+    
+    k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
+        (orig, ref, mv_out_dev, padw, padh);
+
+    k_mb<<<1, 1>>> (mv_out_dev, mbs, padw, padh);
+
+    cudaFree(mv_out_dev);
 }
+
+void cuda_c63_motion_estimate(int width, int height,
+        uint8_t *origY, uint8_t *origU, uint8_t *origV,
+        uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
+        struct macroblock *mbsY, struct macroblock *mbsU,
+        struct macroblock *mbsV) 
+{
+    //cudaPrintfInit();
+    cuda_me_cc(width, height, origY, reconsY, mbsY);
+    cuda_me_cc(width / 2, height / 2, origU, reconsU, mbsU);
+    cuda_me_cc(width / 2, height / 2, origV, reconsV, mbsV);
+    //cudaPrintfDisplay();
+    //cudaPrintfEnd();
+}
+
+__global__ void k_mc_block_8x8(int w, int h, uint8_t *predicted, uint8_t *ref, struct macroblock *mbs) 
+{
+    int mb_x = blockIdx.x;
+    int mb_y = blockIdx.y;
+    struct macroblock *mb = &mbs[mb_y * w / 8 + mb_x];
+    if (!mb->use_mv)
+        return;
+
+    /* Copy block from ref mandated by MV */
+    int x = 8 * mb_x + threadIdx.x;
+    int y = 8 * mb_y + threadIdx.y;
+    predicted[y*w+x] = ref[(y + mb->mv_y) * w + (x + mb->mv_x)];
+}
+
+void cuda_c63_motion_compensate(int width, int height,
+        uint8_t *reconsY, uint8_t *reconsU, uint8_t *reconsV,
+        uint8_t *predY, uint8_t *predU, uint8_t *predV,
+        struct macroblock *mbsY, struct macroblock *mbsU,
+        struct macroblock *mbsV) 
+{
+    int mb_cols = width / 8;
+    int mb_rows = height / 8;
+    
+    dim3 threads(8, 8);
+    dim3 blocksY(mb_cols, mb_rows);
+    dim3 blocksUV(mb_cols / 2, mb_rows / 2);
+
+    k_mc_block_8x8<<<blocksY, threads>>> (width, height, 
+            predY, reconsY, mbsY);
+    k_mc_block_8x8<<<blocksUV, threads>>> (width / 2, height / 2, 
+            predU, reconsU, mbsU);
+    k_mc_block_8x8<<<blocksUV, threads>>> (width / 2, height / 2, 
+            predV, reconsV, mbsV);
+}
+

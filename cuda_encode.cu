@@ -173,14 +173,14 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
     cudaMemcpy(cm->curframe->mbs[2], mbsV, uvpw * uvph / 64 *
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
-    /*
+    
     pthread_t t;
     tmp_cm = *cm;
     pthread_create(&t, NULL, thread_write_frame, (void*)&tmp_cm);
     th_id_list.push_back(t);
     cuda_fake_cm_init(cm); 
-    */
-    write_frame(cm);
+    
+    //write_frame(cm);
 }
 
 

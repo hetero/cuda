@@ -14,10 +14,11 @@
 \title{Home Exam 3: Video Encoding on GPU using the CUDA framework}
 \author{Paweł Kozłowski \and Łukasz Mazurek}
 
-
 \begin{document}
 \maketitle
+\pagebreak
 \tableofcontents
+\pagebreak
 
 \section{Introduction}
 In order to achieve the best efficiency of video encoding we made some optimizations of the following parts of the code:
@@ -35,14 +36,20 @@ in parallel.
 
 \subsection{Algorithm}
 The first and the biggest bottleneck of the encoder is motion estimation.
-(TODO: WYKRES Z PROCENTAMI)
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/precode.png}
+\caption{Times of precode's parts}
+\end{figure}
+
+\noindent
 There are plenty of algorithms faster than \emph{full search} to find the
 motion vector using single-threaded architecture.
-However, not all of them are well designed to use the potential of \emph{CUDA}
-architecture.
+However, not all of them are well designed to use the potential of \emph{CUDA}.
 Therefore we decided to optimize the \emph{full search} algorithm, since
 it is very ``regular'' --- calculations for each non-border block looks exactly
-the same (unlike in i.eg. \emph{diamond search}).
+the same (unlike in \emph{diamond search}).
 
 \subsection{Division of tasks}
 We can classify all the tasks among the 3 levels:
@@ -56,17 +63,15 @@ We can classify all the tasks among the 3 levels:
   64 absolute differences between pixels values and summing up all the result.
 \end{enumerate}
 
-Ad. 3. Since the calculating of \emph{SAD} is a sequential task, we decided, that
-each \emph{SAD} is calculated by one thread. (TODO MOZNA SIE POKUSIC O SCHEMAT)
+Ad. 3. Since the calculating of \emph{SAD} is a sequential task, we decided, that each \emph{SAD} is calculated by one thread.
 
 Ad. 2. Each of $32 \cdot 32$ \emph{SAD} functions are calculated between the
 particular block of original frame, and different blocks of reference frame.
 Therefore it's a good task for one block of threads.
 Unfortunately, we cannot use $32 \cdot 32$ threads on one block.
-On \emph{Clinton} we are limited by 1024 threads on one multiprocessor and
-8 thread blocks on one multiprocessor.
+On \emph{Clinton} we are limited to 512 threads per thread block, 1024 threads and 8 thread blocks per one multiprocessor.
 Therefore, to achieve the maximum occupancy of \emph{GPU} cores, we use 128
-threads on a block, which leads to 1024 threads on a multiprocessor.
+threads per a block, which leads to 1024 threads per a multiprocessor.
 Thus, each of 128 threads must calculate 8 \emph{SAD} functions and find 
 minimal value of them.
 After that we can find the minimal \emph{SAD} among these 128 values using
@@ -75,7 +80,7 @@ After that we can find the minimal \emph{SAD} among these 128 values using
 Ad. 1. Each $8 \times 8$ block of frame is processed by a separate thread
 block.
 
-\subsection{Using of \emph{shared memory}}
+\subsection{Using of shared memory}
 Each block of threads is calculating \emph{SAD} functions between one 
 $8 \times 8$ block of original frame and $32 \times 32$ blocks of reference
 frame. In order to do this, it needs $8 \times 8$ pixels from original
@@ -84,8 +89,7 @@ The kernel can read this data once from a global memory, store in shared
 memory (which is much faster) and then use only shared memory for calculations.
 
 \subsubsection{Transferring data from global to shared memory}
-(TODO: POMIARY CZASU TRANSFEROW WZGLEDEM OBLICZEN)
-Since the transfer of data from global to shared memory takes noticable amount
+Since the transfer of data from global to shared memory takes noticeable amount
 of time, it is important to do it efficiently in parallel using \emph{CUDA}
 threads. 
 
@@ -93,45 +97,57 @@ Since we have 128 threads (16 rows of 8 threads each), we can read the
 original frame block of 64 pixels in one command (using 64 threads).
 However to provide parallel processing of this command we must avoid the bank
 conflicts on a shared memory. In order to to this we figured out the pattern
-of assigning the pixels to threads which avoids the bank confilcts in both
+of assigning the pixels to threads which avoids the bank conflicts in both
 meanings (1.3 and 2.1 compute capabilities).
-TODO OOOOOOOOOOOOOOOOOO: RYSUNEK
 
 Besides the original frame block, each thread block needs to read 
 $39 \cdot 39 = 1521$ pixels of reference data. We divided this area into
-4 subareas shown in the picture. 
-TODOOOOOOOOOOOOO RYSUNEK
+4 subareas shown in the picture.
+
 The A area is being read in 8 commands by each of 128 threads.
 The B (RIGHT) area is being read in 4 commands by each of 64 threads.
 The C (BOTTOM) area is being read in 2 commands by each of 128 threads.
 The D area is being read in 1 command by each of 64 threads.
 
 In order to avoid the bank conflicts, we set the width of the array to 48,
-and assigned the threads to the pixels as shown in the picture TODOOOOOO RYS.
+and assigned the threads to the pixels as shown in the picture
 
-\subsubsection{Calculating the \emph{SAD}}
+\subsubsection{Calculating the SAD}
 Since we have 128 threads and 1024 \emph{SAD} functions to calculate, each
 thread must calculate 8 \emph{SAD}s. In this part we also figured out the
 mapping between pixels and threads, which avoids the bank conflicts.
-TODOOOOO RYSUNEK.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/cuda_me.png}
+\caption{Times of precode's parts with ME on CUDA}
+\end{figure}
 
 \section{DCT/IDCT and quantization/dequantization}
-Port of code which was computing DCT and quantization was straight forward in the beginning. Of course first try of porting code to CUDA resulted in slower runtime, because of a big number of useless uncoalesced global memory accessing. There is individual kernel per Y/U/V frame, so in general there are run 3 kernels per one frame of video. We started to optimize it architecture-specific as below.
+Port of code which was computing \emph{DCT} and quantization was straight forward in the beginning. Of course first try of porting code to \emph{CUDA} resulted in slower runtime, because of a big number of useless uncoalesced global memory accessing. There is individual kernel per DCT/IDCT per Y/U/V frame, so in general there are run 6 kernels per one frame of video. We started to optimize it architecture-specific as below.
+
 \subsection{Algorithm}
-We used algorithm from precode with few modifications which were good for CUDA.
+We used algorithm from precode with few modifications which were good for \emph{CUDA}.
+
 \subsection{Division of tasks}
-To lower the uncoalesced accessing each pair of macroblocks in a row is now computed by thread block (with 128 threads). So one half-warp with 16 threads reads 16 bytes in a row from global memory and copy it straight to shared memory without bank conflicts (there are 16 banks). Unfortunately because of another order of output data this is not true for writing to global memory. There is similar situation with IDCT, just the opposite.
-\subsection{Memory}
-For computation we are using shared memory. We tried to avoid as many bank conflicts as possible to get higher performance. There are few places where are still bank conflicts but no better idea came to our minds. We were able to discard transposition of matrices thanks to putting result of multiplying input row by dctlookup column to appropriate place where it would be after transposition. Thanks to that we could even lower the number of bank conflicts too. Really hard (or even impossible) part to avoid bank conflicts is quantization, we left it as it was. All of constant tables we put in constant memory on device.
+To lower the uncoalesced accessing each pair of macroblocks in a row is now computed by thread block (with 128 threads). So one half-warp with 16 threads reads 16 bytes in a row from global memory and copy it straight to shared memory without bank conflicts (there are 16 banks). Unfortunately because of another order of output data this is not true for writing to global memory. There is similar situation with \emph{IDCT}, just the opposite.
+
+\subsection{Using of shared memory}
+For computation specific for one macroblock we are using shared memory. We tried to avoid as many bank conflicts as possible to get higher performance. There are few places where are still bank conflicts but no better idea came to our minds. We were able to discard transposition of matrices thanks to putting result of multiplying \texttt{input} row by \texttt{dctlookup} column to appropriate place where it would be after transposition. Thanks to that we could lower even more the number of bank conflicts too. Really hard (or even impossible) part to avoid bank conflicts is quantization, we left it as it was. All of constant tables we put in constant memory on device.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/cuda_me.png}
+\caption{Times with ME and DCT/IDCT on CUDA}
+\end{figure}
 
 \section{VLC}
-In the beginning VLC was consuming a very little amount of time but after all other optimizations it was taking about 10\% of runtime. In the beginning we were trying to port whole VLC to CUDA but after that we understood its code very well we did not have any idea to make it parallel because of its sequential nature. We decided in the end use CPU thread for writing output, because it can be done during computing CUDA kernel on the device. Thanks to this optimization writing code is now running 3 times faster.
+In the beginning \emph{VLC} was consuming a very little amount of time but after all other optimizations it was taking about 10\% of runtime. In the beginning we were trying to port whole \emph{VLC} to \emph{CUDA}, but after that we had understood its code very well, we did not have any idea to make it parallel because of its sequential nature. We decided in the end use CPU thread for writing output, because it can be done during computing \emph{CUDA} kernel on the device. Thanks to this optimization \emph{VLC} code is now running 3 times faster.
+
 \section{Memory transfers}
 Since we were porting the code of \emph{ME} and \emph{DCT} partially from 
 \emph{CPU} to \emph{GPU}, after optimizations of these parts, the transfers
 of data between \emph{host} and \emph{device} became signifact.
-
-TODO: WYKRESIK PAWELKA :*
 
 Each frame of data was being encoded in the following way:
 \begin{itemize}
@@ -149,7 +165,13 @@ Each frame of data was being encoded in the following way:
   \item transfer of reference frame to \emph{host},
   \item VLC and writing image on \emph{CPU}.
 \end{itemize}
-TODO: PAWCIO, ZROBISZ RYSUNECZEK DO TEGO? :)
+\pagebreak
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/before_all_device.png}
+\caption{Times of kernels before reducing number of host $\leftrightarrow$ device memory transfers}
+\end{figure}
 
 After porting the motion compensation code to \emph{GPU}, the only things
 which we have to do on \emph{CPU} were:
@@ -169,7 +191,13 @@ Therefore we reduced the data transfers between the parts of encoding:
   encoding of the next frame.
 \end{itemize}
 
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/after_all_device.png}
+\caption{Times of kernels after reducing number of host $\leftrightarrow$ device memory transfers}
+\end{figure}
+
 \section{Summary}
-TODO: PAWEL :P
+To sum up video encoding task is very good to optimize with \emph{CUDA}. There is a lot of parts of code which can be run in parallel (in general all of them besides \emph{VLC}). Although, one needs to know architecture very well to write really good optimized code, it is not that hard thing because the architecture is very clear and well documented.
 
 \end{document}

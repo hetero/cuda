@@ -170,23 +170,23 @@ __global__ void k_mb(int *mv_out, struct macroblock *mbs,
 {
     int mb_cols = padw / 8;
     int mb_rows = padh / 8;
-    for (int mb_y = 0; mb_y < mb_rows; ++mb_y) {
-        for (int mb_x = 0; mb_x < mb_cols; ++mb_x) {
-            int block_nr = mb_y * mb_cols + mb_x;
-            // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
-            int sadxy = mv_out[block_nr];
-            int sad = sadxy >> 10;
-            int mv_y = ((sadxy >> 5) & 31) - 16;
-            int mv_x = (sadxy & 31) - 16;
-            struct macroblock *mb = &mbs[block_nr];
-            if (sad < 512) {
-                mb->use_mv = 1;
-                mb->mv_x = mv_x;
-                mb->mv_y = mv_y;
-            }
-            else {
-                mb->use_mv = 0;
-            }
+    int mb_y = 16 * blockIdx.y + threadIdx.y;
+    int mb_x = 8 * blockIdx.x + threadIdx.x;
+    if (mb_x < mb_cols && mb_y < mb_rows) {
+        int block_nr = mb_y * mb_cols + mb_x;
+        // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
+        int sadxy = mv_out[block_nr];
+        int sad = sadxy >> 10;
+        int mv_y = ((sadxy >> 5) & 31) - 16;
+        int mv_x = (sadxy & 31) - 16;
+        struct macroblock *mb = &mbs[block_nr];
+        if (sad < 512) {
+            mb->use_mv = 1;
+            mb->mv_x = mv_x;
+            mb->mv_y = mv_y;
+        }
+        else {
+            mb->use_mv = 0;
         }
     }
 }
@@ -209,7 +209,11 @@ void cuda_me_cc(int padw, int padh, uint8_t *orig, uint8_t *ref,
     k_me_block_8x8<<<numBlocks, threadsPerBlock>>>
         (orig, ref, mv_out_dev, padw, padh);
 
-    k_mb<<<1, 1>>> (mv_out_dev, mbs, padw, padh);
+    int blocks_width = (mb_cols + 7) / 8;
+    int blocks_height = (mb_rows + 15) / 16;
+    dim3 mb_blocks(blocks_width, blocks_height);
+
+    k_mb<<<mb_blocks, threadsPerBlock>>> (mv_out_dev, mbs, padw, padh);
 
     cudaFree(mv_out_dev);
 }

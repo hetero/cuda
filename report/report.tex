@@ -198,6 +198,23 @@ Therefore we reduced the data transfers between the parts of encoding:
 \end{figure}
 
 \section{Summary}
-To sum up video encoding task is very good to optimize with \emph{CUDA}. There is a lot of parts of code which can be run in parallel (in general all of them besides \emph{VLC}). Although, one needs to know architecture very well to write really good optimized code, it is not that hard thing because the architecture is very clear and well documented.
+To sum up video encoding task is very good to optimize with \emph{CUDA}. There is a lot of parts of code which can be run in parallel (in general all of them besides \emph{VLC}). Although, one needs to know architecture very well to write really good optimized code, it is not that hard thing because the architecture is very clear and well documented. Below we represent results of our work!
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|}
+\hline
+precode & 2200.69\,s \\
+\hline
+precode, ME on CUDA & 183.54\,s \\
+\hline
+ME and DCT/IDCT on CUDA & 74.66\,s \\\hline
+reduced memory host $\leftrightarrow$ device transfers & 63.48\,s \\
+\hline
+thread for VLC & 53.41\,s \\
+\hline
+\end{tabular}
+\caption{Times of encoding whole tractor.yuv with particular optimizations}
+\end{table}
 
 \end{document}

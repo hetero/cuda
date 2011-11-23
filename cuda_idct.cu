@@ -86,14 +86,14 @@ __device__ static void cuda_scale_block(float *in_data, float *out_data, const i
 __device__ static void cuda_idct_1d(float *in_row, float *out_cell, const int &col_mb)
 {
 #define dct_col (threadIdx.y)
-    float idct = in_row[7] * dctlookup[dct_col][7];
-    idct += in_row[0] * dctlookup[dct_col][0];
+    float idct = in_row[0] * dctlookup[dct_col][0];
     idct += in_row[1] * dctlookup[dct_col][1];
     idct += in_row[2] * dctlookup[dct_col][2];
     idct += in_row[3] * dctlookup[dct_col][3];
     idct += in_row[4] * dctlookup[dct_col][4];
     idct += in_row[5] * dctlookup[dct_col][5];
     idct += in_row[6] * dctlookup[dct_col][6];
+    idct += in_row[7] * dctlookup[dct_col][7];
     
     *out_cell = idct;
 }
@@ -112,7 +112,6 @@ __device__ static void cuda_dequant_idct_block_8x8(
         const int &col_mb, const int &block_pos)
 {
     int first_col = (threadIdx.x >> 3) << 3;
-    //int first_col_row = DCT_TH_X * threadIdx.y + first_col;
     int first_col_row = DCT_TH_X * col_mb + first_col;
     cuda_dequantize_block(mb + first_col, mb2 + first_col, id_quant, col_mb);
     __syncthreads();
@@ -135,7 +134,6 @@ __global__ static void k_dequant_idct_block_8x8(
     int idxIn = 8 * width * blockIdx.y + DCT_BL_SIZE * blockIdx.x + 8 * threadIdx.y + col_mb + 64 * nr_mb;
     mb[block_pos] = in_data[idxIn];
     cuda_dequant_idct_block_8x8(mb, mb2, id_quant, col_mb, block_pos);
-    // mb has result
     int idxPredOut = 8 * width * blockIdx.y + DCT_TH_X * blockIdx.x + width * threadIdx.y + threadIdx.x;
     int tmp = (int)mb[block_pos] + (int)prediction[idxPredOut];
     if (tmp < 0)

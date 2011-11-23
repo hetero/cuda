@@ -212,6 +212,7 @@ void destroy_frame_write(struct frame *f)
 void destroy_cm_write(struct c63_common *cm)
 {
     destroy_frame_write(cm->curframe);
+    free(cm);
 }
 
 void cuda_fake_cm_init(struct c63_common *cm) {

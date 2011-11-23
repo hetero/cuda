@@ -150,7 +150,7 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
     cudaMemcpy(cm->curframe->mbs[2], mbsV, uvpw * uvph / 64 *
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
-
+    
     write_frame(cm);
 }
 

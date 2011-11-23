@@ -18,13 +18,15 @@
 #include "cuda_idct.h"
 #include "cuda_encode.h"
 
-using std::list;
+//using std::list;
 
 // list for write requests
+/*
 static list<c63_common*> write_list;
 static list<pthread_t> th_id_list;
 static struct entropy_ctx write_entropy;
 pthread_mutex_t mutex;
+*/
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -57,7 +59,7 @@ void stop() {
 void print_time() {
         printf("Measured time: %f\n", total_time);
 }
-
+/*
 void *thread_write_frame(void *a)
 {
     pthread_mutex_lock(&mutex);
@@ -69,6 +71,7 @@ void *thread_write_frame(void *a)
     pthread_mutex_unlock(&mutex);
     pthread_exit(NULL);
 }
+*/
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -141,21 +144,24 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
         c63_motion_compensate(cm);
     }
     
+    
     dct_quantize(image->Y, cm->curframe->predicted->Y, cm->padw[0], cm->padh[0], cm->curframe->residuals->Ydct, cm->quanttbl[0]);
     dct_quantize(image->U, cm->curframe->predicted->U, cm->padw[1], cm->padh[1], cm->curframe->residuals->Udct, cm->quanttbl[1]);
     dct_quantize(image->V, cm->curframe->predicted->V, cm->padw[2], cm->padh[2], cm->curframe->residuals->Vdct, cm->quanttbl[2]);
     dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
     dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
     dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
+  
+    
     // dump_image can be used here to check if the prediction is correct.
     //dump_image(cm->curframe->predicted, cm->width, cm->height, predfile);
 
-    
+   /* 
     write_list.push_back(cm_copy_write(cm, &write_entropy));
     pthread_t t;
     pthread_create(&t, NULL, thread_write_frame, NULL);
-    th_id_list.push_back(t);
-    //write_frame(cm);
+    th_id_list.push_back(t);*/
+    write_frame(cm);
 
     ++cm->framenum;
     ++cm->frames_since_keyframe;
@@ -197,6 +203,10 @@ struct c63_common* init_c63_enc(int width, int height)
         cm->quanttbl[2][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
     }
 
+    return cm;
+}
+
+void cuda_fake_cm_init(struct c63_common *cm) {
     cm->curframe = (struct frame *) malloc(sizeof(struct frame));
 
     cm->curframe->residuals = (dct_t *) malloc(sizeof(dct_t));
@@ -213,8 +223,18 @@ struct c63_common* init_c63_enc(int width, int height)
             * cm->mb_rows / 4 * sizeof(struct macroblock));
     cm->curframe->mbs[2] = (struct macroblock *) malloc(cm->mb_cols
             * cm->mb_rows / 4 * sizeof(struct macroblock));
+}
 
-    return cm;
+void cuda_fake_cm_free(struct c63_common *cm) {
+    free(cm->curframe->residuals->Ydct); 
+    free(cm->curframe->residuals->Udct);
+    free(cm->curframe->residuals->Vdct);
+    free(cm->curframe->residuals);
+
+    free(cm->curframe->mbs[0]);
+    free(cm->curframe->mbs[1]);
+    free(cm->curframe->mbs[2]);
+    free(cm->curframe);
 }
 
 static void print_help()
@@ -252,7 +272,7 @@ int main(int argc, char **argv)
 
     const int keyframe_interval = 100;
 
-    pthread_mutex_init (&mutex, NULL);
+    //pthread_mutex_init (&mutex, NULL);
 
     int c;
     yuv_t *image;
@@ -307,10 +327,11 @@ int main(int argc, char **argv)
 
 //    predfile = fopen("/tmp/pred.yuv", "wb");
 
-
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
-    write_entropy = cm->e_ctx;
+    //write_entropy = cm->e_ctx;
+
+    cuda_fake_cm_init(cm);
 
     cuda_init_c63_encode(width, height,
             &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
@@ -334,7 +355,6 @@ int main(int argc, char **argv)
         perror("fopen");
         exit(EXIT_FAILURE);
     }
-
 
     /* Encode input frames */
     int numframes = 0;
@@ -365,29 +385,23 @@ int main(int argc, char **argv)
         free(image);
 
         fprintf(stderr, "Done!\n");
-
         ++numframes;
         if (limit_numframes && numframes >= limit_numframes)
             break;
     }
 
-    cuda_free_c63_encode(
-            &origY, &origU, &origV, &reconsY, &reconsU, &reconsV,
-            &predY, &predU, &predV, &residY, &residU, &residV,
-            &mbsY, &mbsU, &mbsV
-        );
-
+    /*
     while (!th_id_list.empty())
     {
         pthread_join(th_id_list.front(), NULL);
         th_id_list.pop_front();
     }
-
+*/
     fclose(outfile);
     fclose(infile);
 //    fclose(predfile);
 
-
+    cuda_fake_cm_free(cm);
     print_time();
     return EXIT_SUCCESS;
 }

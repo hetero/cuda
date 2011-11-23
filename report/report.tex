@@ -22,10 +22,17 @@
 
 \section{Motion search}
 
-\section{Discrete cosine transform and quantization}
+\section{DCT/IDCT and quantization/dequantization}
+Port of code which was computing DCT and quantization was straight forward in the beginning. Of course first try of porting code to CUDA resulted in slower runtime, because of a big number of useless uncoalesced global memory accessing. There is individual kernel per Y/U/V frame, so in general there are run 3 kernels per one frame of video. We started to optimize it architecture-specific as below.
+\subsection{Algorithm}
+We used algorithm from precode with few modifications which were good for CUDA.
+\subsection{Division of tasks}
+To lower the uncoalesced accessing each pair of macroblocks in a row is now computed by thread block (with 128 threads). So one half-warp with 16 threads reads 16 bytes in a row from global memory and copy it straight to shared memory without bank conflicts (there are 16 banks). Unfortunately because of another order of output data this is not true for writing to global memory. There is similar situation with IDCT, just the opposite.
+\subsection{Memory}
+For computation we are using shared memory. We tried to avoid as many bank conflicts as possible to get higher performance. There are few places where are still bank conflicts but no better idea came to our minds. We were able to discard transposition of matrices thanks to putting result of multiplying input row by dctlookup column to appropriate place where it would be after transposition. Thanks to that we could even lower the number of bank conflicts too. Really hard (or even impossible) part to avoid bank conflicts is quantization, we left it as it was. All of constant tables we put in constant memory on device.
 
 \section{VLC}
-
+In the beginning VLC was consuming a very little amount of time but after all other optimizations it was taking about 10\% of runtime. In the beginning we were trying to port whole VLC to CUDA but after that we understood its code very well we did not have any idea to make it parallel because of its sequential nature. We decided in the end use CPU thread for writing output, because it can be done during computing CUDA kernel on the device. Thanks to this optimization writing code is now running 3 times faster.
 \section{Memory transfers}
 
 \section{Summary}

@@ -18,15 +18,12 @@
 #include "cuda_idct.h"
 #include "cuda_encode.h"
 
-//using std::list;
+using std::list;
 
 // list for write requests
-/*
-static list<c63_common*> write_list;
-static list<pthread_t> th_id_list;
-static struct entropy_ctx write_entropy;
+list<pthread_t> th_id_list;
+struct entropy_ctx write_entropy;
 pthread_mutex_t mutex;
-*/
 
 static char *output_file, *input_file;
 FILE *outfile;
@@ -59,19 +56,6 @@ void stop() {
 void print_time() {
         printf("Measured time: %f\n", total_time);
 }
-/*
-void *thread_write_frame(void *a)
-{
-    pthread_mutex_lock(&mutex);
-    write_frame(write_list.front());
-    // small hack to remember entropy_ctx
-    write_entropy = write_list.front()->e_ctx;
-    destroy_cm_write(write_list.front());
-    write_list.pop_front();
-    pthread_mutex_unlock(&mutex);
-    pthread_exit(NULL);
-}
-*/
 
 /* Read YUV frames */
 static yuv_t* read_yuv(FILE *file)
@@ -206,24 +190,6 @@ struct c63_common* init_c63_enc(int width, int height)
     return cm;
 }
 
-void cuda_fake_cm_init(struct c63_common *cm) {
-    cm->curframe = (struct frame *) malloc(sizeof(struct frame));
-
-    cm->curframe->residuals = (dct_t *) malloc(sizeof(dct_t));
-    cm->curframe->residuals->Ydct = 
-        (int16_t *) malloc(cm->ypw * cm->yph * sizeof(int16_t));
-    cm->curframe->residuals->Udct = 
-        (int16_t *) malloc(cm->upw * cm->uph * sizeof(int16_t));
-    cm->curframe->residuals->Vdct = 
-        (int16_t *) malloc(cm->vpw * cm->vph * sizeof(int16_t));
-
-    cm->curframe->mbs[0] = (struct macroblock *) malloc(cm->mb_cols
-            * cm->mb_rows * sizeof(struct macroblock));
-    cm->curframe->mbs[1] = (struct macroblock *) malloc(cm->mb_cols
-            * cm->mb_rows / 4 * sizeof(struct macroblock));
-    cm->curframe->mbs[2] = (struct macroblock *) malloc(cm->mb_cols
-            * cm->mb_rows / 4 * sizeof(struct macroblock));
-}
 
 void cuda_fake_cm_free(struct c63_common *cm) {
     free(cm->curframe->residuals->Ydct); 
@@ -329,7 +295,7 @@ int main(int argc, char **argv)
 
     struct c63_common *cm = init_c63_enc(width, height);
     cm->e_ctx.fp = outfile;
-    //write_entropy = cm->e_ctx;
+    write_entropy = cm->e_ctx;
 
     cuda_fake_cm_init(cm);
 
@@ -390,13 +356,12 @@ int main(int argc, char **argv)
             break;
     }
 
-    /*
     while (!th_id_list.empty())
     {
         pthread_join(th_id_list.front(), NULL);
         th_id_list.pop_front();
     }
-*/
+    
     fclose(outfile);
     fclose(infile);
 //    fclose(predfile);

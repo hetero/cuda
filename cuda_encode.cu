@@ -1,10 +1,33 @@
+#include <list>
+#include <pthread.h>
+
 #include "c63.h"
 #include "cuda_encode.h"
 #include "cuda_me.h"
 #include "cuda_dct.h"
 #include "cuda_idct.h"
 //#include "cuPrintf.cu"
-    
+
+using std::list;
+extern list<pthread_t> th_id_list;
+extern struct entropy_ctx write_entropy;
+extern pthread_mutex_t mutex;
+struct c63_common tmp_cm;
+
+void *thread_write_frame(void *tmp_cm)
+{
+    struct c63_common *cm = (struct c63_common *)tmp_cm;
+    cm->e_ctx = write_entropy;
+    pthread_mutex_lock(&mutex);
+    write_frame(cm);
+    // small hack to remember entropy_ctx
+    write_entropy = cm->e_ctx;
+    destroy_cm_write(cm);
+    pthread_mutex_unlock(&mutex);
+    pthread_exit(NULL);
+}
+
+
 void cuda_init_c63_encode(int width, int height,
         uint8_t **origY, uint8_t **origU, uint8_t **origV,
         uint8_t **reconsY, uint8_t **reconsU, uint8_t **reconsV,
@@ -150,7 +173,14 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
     cudaMemcpy(cm->curframe->mbs[2], mbsV, uvpw * uvph / 64 *
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
-    
+    /*
+    pthread_t t;
+    tmp_cm = *cm;
+    pthread_create(&t, NULL, thread_write_frame, (void*)&tmp_cm);
+    th_id_list.push_back(t);
+    cuda_fake_cm_init(cm); 
+    */
     write_frame(cm);
 }
+
 

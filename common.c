@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "c63.h"
 #include "tables.h"
@@ -211,6 +212,23 @@ void destroy_frame_write(struct frame *f)
 void destroy_cm_write(struct c63_common *cm)
 {
     destroy_frame_write(cm->curframe);
-    free(cm);
 }
 
+void cuda_fake_cm_init(struct c63_common *cm) {
+    cm->curframe = (struct frame *) malloc(sizeof(struct frame));
+
+    cm->curframe->residuals = (dct_t *) malloc(sizeof(dct_t));
+    cm->curframe->residuals->Ydct = 
+        (int16_t *) malloc(cm->ypw * cm->yph * sizeof(int16_t));
+    cm->curframe->residuals->Udct = 
+        (int16_t *) malloc(cm->upw * cm->uph * sizeof(int16_t));
+    cm->curframe->residuals->Vdct = 
+        (int16_t *) malloc(cm->vpw * cm->vph * sizeof(int16_t));
+
+    cm->curframe->mbs[0] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows * sizeof(struct macroblock));
+    cm->curframe->mbs[1] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+    cm->curframe->mbs[2] = (struct macroblock *) malloc(cm->mb_cols
+            * cm->mb_rows / 4 * sizeof(struct macroblock));
+}

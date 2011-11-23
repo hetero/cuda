@@ -12,7 +12,6 @@ using std::list;
 extern list<pthread_t> th_id_list;
 extern struct entropy_ctx write_entropy;
 extern pthread_mutex_t mutex;
-struct c63_common tmp_cm;
 
 void *thread_write_frame(void *tmp_cm)
 {
@@ -175,12 +174,14 @@ void cuda_c63_encode_image(struct c63_common *cm, int width, int height,
             sizeof(struct macroblock), cudaMemcpyDeviceToHost);
     
     pthread_t t;
-    tmp_cm = *cm;
-    pthread_create(&t, NULL, thread_write_frame, (void*)&tmp_cm);
+    struct c63_common *tmp_cm = (struct c63_common *)calloc(1, sizeof(struct c63_common));
+    *tmp_cm = *cm;
+    pthread_create(&t, NULL, thread_write_frame, (void*)tmp_cm);
     th_id_list.push_back(t);
     cuda_fake_cm_init(cm); 
     
     //write_frame(cm);
+    cm->framenum++;
 }
 
 

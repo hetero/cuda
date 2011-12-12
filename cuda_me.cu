@@ -25,8 +25,31 @@
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int *result)
 {
-    int sum, minsad = INT_MAX;
-    uint8_t *b1, *b2;
+    int sum[8] = {0}, minsad = INT_MAX;
+    uint8_t *b1, *b2[8];
+
+    b1 = block1;
+    for (int k = 0; k < 4; ++k) {
+        b2[k] = block2 + k;
+        b2[4 + k] = block2 + REF_WIDTH + k;
+    }
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            int l1 = *b1;
+            for (int k = 0; k < 8; ++k) {
+                sum[k] = __sad(l1, *b2[k], sum[k]);
+                ++b2[k];
+            }
+            ++b1;
+        }
+        for (int k = 0; k < 8; ++k)
+            b2[k] += 40;
+    }
+    for (int k = 0; k < 4; ++k) {
+        minsad = min(minsad, (sum[k] << 10) + k);
+        minsad = min(minsad, (sum[4 + k] << 10) + 32 + k);
+    }
+     /*       
 
     for (int k = 0; k < 4; ++k) {
         sum = 0;
@@ -53,9 +76,11 @@ __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
                 sum = __sad(l2, l1, sum); ++b1; ++b2;
             }
             b2 += 40;
-        }
+            }
         minsad = min((sum << 10) + 32 + k, minsad);
     }
+    */
+
     // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
     *result = minsad;
 }

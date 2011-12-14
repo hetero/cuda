@@ -25,61 +25,114 @@
 __device__ void cuda_sad_block_8x8(uint8_t *block1, uint8_t *block2,
         int *result)
 {
-    int sum[8] = {0}, minsad = INT_MAX;
-    uint8_t *b1, *b2[8];
+    int sum0 = 0; 
+    int sum1 = 0; 
+    int sum2 = 0; 
+    int sum3 = 0; 
+    int sum4 = 0; 
+    int sum5 = 0; 
+    int sum6 = 0; 
+    int sum7 = 0;
+    int minsad = INT_MAX;
+    uint8_t *b1, *b20,*b21,*b22,*b23,*b24,*b25,*b26,*b27;
 
     b1 = block1;
-    for (int k = 0; k < 4; ++k) {
-        b2[k] = block2 + k;
-        b2[4 + k] = block2 + REF_WIDTH + k;
-    }
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            int l1 = *b1;
-            for (int k = 0; k < 8; ++k) {
-                sum[k] = __sad(l1, *b2[k], sum[k]);
-                ++b2[k];
-            }
-            ++b1;
-        }
-        for (int k = 0; k < 8; ++k)
-            b2[k] += 40;
-    }
-    for (int k = 0; k < 4; ++k) {
-        minsad = min(minsad, (sum[k] << 10) + k);
-        minsad = min(minsad, (sum[4 + k] << 10) + 32 + k);
-    }
-     /*       
+    b20 = block2;
+    b21 = block2 + 1;
+    b22 = block2 + 2;
+    b23 = block2 + 3;
+    b24 = block2 + REF_WIDTH;
+    b25 = block2 + REF_WIDTH + 1;
+    b26 = block2 + REF_WIDTH + 2;
+    b27 = block2 + REF_WIDTH + 3;
+    int l1;
+    //////////////////
 
-    for (int k = 0; k < 4; ++k) {
-        sum = 0;
-        b1 = block1;
-        b2 = block2 + k;
-        for (int i = 0; i < 8; ++i) {
-            for (int j = 0; j < 8; ++j) {
-                int l1 = *b1;
-                int l2 = *b2;
-                sum = __sad(l2, l1, sum); ++b1; ++b2;
-            }
-            b2 += 40;
-        }
-        minsad = min((sum << 10) + k, minsad);
-    }
-    for (int k = 0; k < 4; ++k) {
-        sum = 0;
-        b1 = block1;
-        b2 = block2 + REF_WIDTH + k;
-        for (int i = 0; i < 8; ++i) {
-            for (int j = 0; j < 8; ++j) {
-                int l1 = *b1;
-                int l2 = *b2;
-                sum = __sad(l2, l1, sum); ++b1; ++b2;
-            }
-            b2 += 40;
-            }
-        minsad = min((sum << 10) + 32 + k, minsad);
-    }
-    */
+
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    l1 = *b1; sum0 = __sad(l1, *b20, sum0); ++b20; sum1 = __sad(l1, *b21, sum1); ++b21; sum2 = __sad(l1, *b22, sum2); ++b22; sum3 = __sad(l1, *b23, sum3); ++b23; sum4 = __sad(l1, *b24, sum4); ++b24; sum5 = __sad(l1, *b25, sum5); ++b25; sum6 = __sad(l1, *b26, sum6); ++b26; sum7 = __sad(l1, *b27, sum7); ++b27; ++b1;
+    b20 += 40; b21 += 40; b22 += 40; b23 += 40; b24 += 40; b25 += 40; b26 += 40; b27 += 40;
+
+
+    ///////////////////
+    minsad = min(minsad, (sum0 << 10));
+    minsad = min(minsad, (sum1 << 10) + 1);
+    minsad = min(minsad, (sum2 << 10) + 2);
+    minsad = min(minsad, (sum3 << 10) + 3);
+    minsad = min(minsad, (sum4 << 10) + 32);
+    minsad = min(minsad, (sum5 << 10) + 32 + 1);
+    minsad = min(minsad, (sum6 << 10) + 32 + 2);
+    minsad = min(minsad, (sum7 << 10) + 32 + 3);
 
     // sadxy = sad*1024 + (mv_y+16)*32 + (mv_x+16)
     *result = minsad;
